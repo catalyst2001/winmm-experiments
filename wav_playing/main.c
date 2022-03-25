@@ -1,14 +1,22 @@
 ﻿// 
-// WAV PCM file loading and playing demo
+// PCM WAV file loading and playing demo
 // Author: Deryabin K.
 // Date: 25.03.2022
 // 
+// WARNING! Not use this implementation in real projects!
+// The disadvantage of the demo program is that it does not use events
+// to signal the readiness of reproducible buffers and always checks in the
+// main thread for the presence of the set ready flag, which noticeably loads the core.
+// 
 #define _CRT_SECURE_NO_WARNINGS
 #include <Windows.h>
+#include <assert.h> //check errors
 #include <mmsystem.h> //waveOutOpen etc
+#pragma comment(lib, "winmm.lib")
 
 #include <stdio.h>
 #include <stdbool.h>
+#include <string.h> //memcpy
 
 // debug print macro
 #ifdef _DEBUG
@@ -129,7 +137,7 @@ bool load_wave(wave_t *p_wav, const char *p_filename)
 		return false;
 	}
 
-	if (fread(p_wav->p_samples_data, 1, p_wav->buffer_size, fp)) {
+	if (fread(p_wav->p_samples_data, 1, p_wav->buffer_size, fp) != p_wav->buffer_size) {
 		DP("Failed to read samples data from file!\n");
 		return false;
 	}
@@ -144,17 +152,146 @@ void free_wave(wave_t *p_wav)
 		free(p_wav->p_samples_data);
 }
 
+MMRESULT audio_format_supported(LPWAVEFORMATEX p_waveformat, UINT devid)
+{
+	return (waveOutOpen(
+		NULL, // ptr can be NULL for query 
+		devid, // the device identifier 
+		p_waveformat, // defines requested format 
+		NULL, // no callback 
+		NULL, // no instance data 
+		WAVE_FORMAT_QUERY));  // query only, do not open device 
+}
+
+int prepare_audio_buffers(HWAVEOUT h_waveout, PWAVEHDR p_buffers, DWORD number_of_buffers, DWORD buffer_size)
+{
+	PWAVEHDR p_buffer;
+	for (DWORD i = 0; i < number_of_buffers; i++) {
+		p_buffer = &p_buffers[i];
+		memset(p_buffer, NULL, sizeof(WAVEHDR));
+		p_buffer->dwBufferLength = buffer_size;
+		p_buffer->lpData = (char *)calloc(p_buffer->dwBufferLength, sizeof(char));
+		assert(p_buffer->lpData);
+		waveOutPrepareHeader(h_waveout, p_buffer, sizeof(WAVEHDR));
+	}
+}
+
+HWAVEOUT h_waveout;
+
+// 
+// copy_samples
+// 
+// Copies sound sample data into audio buffers and returns true if the buffers have been filled and are ready to be played
+// otherwise false
+// 
+bool copy_samples(PWAVEHDR p_buffer, DWORD buffer_size, DWORD *p_playingpos, const wave_t *p_wave, bool loop)
+{
+	p_buffer->dwFlags &= ~WHDR_DONE; // remove done flag
+	DWORD remaining_size = buffer_size;
+	if ((*p_playingpos + buffer_size) >= p_wave->buffer_size) {
+		remaining_size = (p_wave->buffer_size - *p_playingpos);
+
+		// loop this sound ?
+		if (loop) {
+			*p_playingpos = 0; // reset position in buffer
+			return true; // continue playing
+		}
+		return false; // stop playing
+	}
+
+	// copy audio blocks from wave samples data to audio buffers until the position in samples buffer reaches the end
+	memcpy(p_buffer->lpData, &p_wave->p_samples_data[*p_playingpos], remaining_size);
+	p_buffer->dwBufferLength = remaining_size;
+	*p_playingpos += remaining_size; // increment position in buffer
+	return true;
+}
+
+WAVEHDR  buffers[8];
+DWORD    max_audio_buffer_size;
+
+#define COUNT(x) (sizeof(x) / sizeof(x[0]))
+
 int main()
 {
 	wave_t wav;
 	printf("Loading wav file...\n");
-	if (!load_wave(&wav, "1.wav")) {
+	if (!load_wave(&wav, "techno.wav")) {
 		printf("Failed to load wav file\n");
 		return 1;
 	}
 
-	//TODO: continue playing wav file ... :)
+	// check audio format type
+	if (wav.wave_format != WAVE_FORMAT_PCM) {
+		assert(wav.wave_format == WAVE_FORMAT_PCM);
+		printf("Loaded WAV have is not PCM audio format!  This demo support only PCM audio format!\n");
+		return 2;
+	}
+	printf("wav loaded!\n\n\n");
 
-	free_wav(&wav);
+	// fill waveout device struct
+	WAVEFORMATEX device_format;
+	device_format.cbSize = sizeof(device_format);
+	device_format.wFormatTag = WAVE_FORMAT_PCM;
+	device_format.nSamplesPerSec = wav.sample_rate;
+	device_format.wBitsPerSample = wav.bits_per_samle;
+	device_format.nBlockAlign = wav.block_align;
+	device_format.nAvgBytesPerSec = wav.total_bytes_per_sec;
+	device_format.nChannels = wav.number_of_channels;
+
+	// check support device this format
+	if (audio_format_supported(&device_format, WAVE_MAPPER) != MMSYSERR_NOERROR) {
+		printf("Loaded format is not supported by device!\n");
+		return 3;
+	}
+
+	// opening out device
+	MMRESULT result;
+	CHAR msgbuf[512];
+	if ((result = waveOutOpen(&h_waveout, WAVE_MAPPER, &device_format, NULL, NULL, CALLBACK_NULL))) {
+		waveOutGetErrorTextA(result, msgbuf, sizeof(msgbuf));
+		printf("waveOutOpen failed. Error: %s\n", msgbuf);
+		return 4;
+	}
+
+	// allocate and prepare audio buffers for writing
+	const DWORD buffer_size = 1024;
+	const DWORD number_of_buffers = COUNT(buffers);
+	const bool  loop_track_playing = false;
+
+	DWORD playing_position = 0;
+	prepare_audio_buffers(h_waveout, buffers, number_of_buffers, buffer_size);
+	waveOutReset(h_waveout);
+
+	DWORD i;
+	for (i = 0; i < number_of_buffers; i++) {
+		copy_samples(&buffers[i], buffer_size, &playing_position, &wav, loop_track_playing);
+		waveOutWrite(h_waveout, &buffers[i], sizeof(buffers[i]));
+	}
+
+	// playing wav file
+	while (true) {
+		for (i = 0; i < number_of_buffers; i++) {
+			if (buffers[i].dwFlags & WHDR_DONE) {
+				if (!copy_samples(&buffers[i], buffer_size, &playing_position, &wav, loop_track_playing))
+					goto __endplaying;
+
+				waveOutWrite(h_waveout, &buffers[i], sizeof(buffers[i]));
+			}
+		}
+
+		// update progress in console
+		if (!(GetTickCount() % 50))
+			printf("\rpos %d/%d  track playing percent: %.1f%%        ", playing_position, wav.buffer_size, (playing_position / (float)wav.buffer_size) * 100.f);
+	}
+
+__endplaying:
+
+	// free audio buffers
+	for (i = 0; i < number_of_buffers; i++) {
+		waveOutUnprepareHeader(h_waveout, &buffers[i], sizeof(buffers[i]));
+		free(buffers[i].lpData);
+	}
+	waveOutClose(h_waveout); // close out device
+	free_wave(&wav);
 	return 0;
 }
