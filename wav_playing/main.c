@@ -191,6 +191,9 @@ bool copy_samples(PWAVEHDR p_buffer, DWORD buffer_size, DWORD *p_playingpos, con
 	if ((*p_playingpos + buffer_size) >= p_wave->buffer_size) {
 		remaining_size = (p_wave->buffer_size - *p_playingpos);
 
+		memcpy(p_buffer->lpData, &p_wave->p_samples_data[*p_playingpos], remaining_size);
+		p_buffer->dwBufferLength = remaining_size;
+
 		// loop this sound ?
 		if (loop) {
 			*p_playingpos = 0; // reset position in buffer
@@ -213,9 +216,11 @@ DWORD    max_audio_buffer_size;
 
 int main()
 {
+	SetConsoleTitleA("PCM WAV file playing demo");
+
 	wave_t wav;
 	printf("Loading wav file...\n");
-	if (!load_wave(&wav, "techno.wav")) {
+	if (!load_wave(&wav, "aryx.wav")) {
 		printf("Failed to load wav file\n");
 		return 1;
 	}
@@ -252,11 +257,11 @@ int main()
 		printf("waveOutOpen failed. Error: %s\n", msgbuf);
 		return 4;
 	}
-
+	
 	// allocate and prepare audio buffers for writing
 	const DWORD buffer_size = 1024;
 	const DWORD number_of_buffers = COUNT(buffers);
-	const bool  loop_track_playing = false;
+	const bool  loop_track_playing = 1;
 
 	DWORD playing_position = 0;
 	prepare_audio_buffers(h_waveout, buffers, number_of_buffers, buffer_size);
@@ -275,13 +280,13 @@ int main()
 				if (!copy_samples(&buffers[i], buffer_size, &playing_position, &wav, loop_track_playing))
 					goto __endplaying;
 
+				// send audio buffer to device for playback
 				waveOutWrite(h_waveout, &buffers[i], sizeof(buffers[i]));
+
+				// update progress in console
+				printf("\rpos %d/%d  track playing percent: %.1f%%        ", playing_position, wav.buffer_size, (playing_position / (float)wav.buffer_size) * 100.f);
 			}
 		}
-
-		// update progress in console
-		if (!(GetTickCount() % 50))
-			printf("\rpos %d/%d  track playing percent: %.1f%%        ", playing_position, wav.buffer_size, (playing_position / (float)wav.buffer_size) * 100.f);
 	}
 
 __endplaying:
