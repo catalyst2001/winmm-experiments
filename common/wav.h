@@ -28,6 +28,10 @@ typedef struct wave_s {
 	char *p_samples_data;
 } wave_t;
 
+#define RIFF_CHUNK_SIZE   (sizeof(riff_t) + sizeof(int))
+#define FMT_CHUNK_SIZE    (sizeof(riff_t) + (sizeof(WAVEFORMATEX) - sizeof(WORD)))
+#define DATA_CHUNK_OFFSET (RIFF_CHUNK_SIZE + FMT_CHUNK_SIZE)
+
 // 
 // find_riff_chunk
 // 
@@ -95,6 +99,20 @@ bool wave_write_data(wave_stream_t *p_wavestrm, char *p_data, size_t size);
 // wave_prepare_headers
 // 
 // Prepares riff chunk headers for recording and writes them to the beginning of the file.
+// PCM
 // 
 bool wave_prepare_headers(wave_stream_t *p_wavestrm);
+
+// 
+// wave_get_total_bytes
+// 
+// Get total bytes from recorded wav
+// 
+#define wave_get_total_bytes(x) ((long long)(x)->total_bytes)
+
+// 
+// wave_close
+// 
+// Close and save file
+// 
 void wave_close(wave_stream_t *p_wavestrm);
