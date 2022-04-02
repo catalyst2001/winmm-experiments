@@ -2,5 +2,9 @@
 <Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup>
     <ClCompile Include="main.c" />
+    <ClCompile Include="..\common\wav.c" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="..\common\wav.h" />
   </ItemGroup>
 </Project>

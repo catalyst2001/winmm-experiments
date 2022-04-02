@@ -1,5 +1,6 @@
 #include "wav.h"
 
+#define DP(x, ...) printf(x, __VA_ARGS__)
 
 long find_riff_chunk(riff_t *p_dest_riff, FILE *fp, int name)
 {
@@ -146,16 +147,16 @@ bool wave_prepare_headers(wave_stream_t *p_wavestrm)
 	riff_t chunk;
 	chunk.name = RIFF_CHUNK;
 	chunk.size = file_size;
-	if (fwrite(&chunk, sizeof(chunk), 1, fp) != 1) {
+	if (fwrite(&chunk, sizeof(chunk), 1, p_wavestrm->fp) != 1) {
 		printf("Failed to write 'RIFF' chunk header\n");
-		fclose(fp);
+		fclose(p_wavestrm->fp);
 		return 4;
 	}
 
 	UINT riff_format = FORMAT_WAVE;
-	if (fwrite(&riff_format, sizeof(riff_format), 1, fp) != 1) {
+	if (fwrite(&riff_format, sizeof(riff_format), 1, p_wavestrm->fp) != 1) {
 		printf("Failed to write 'RIFF' chunk data\n");
-		fclose(fp);
+		fclose(p_wavestrm->fp);
 		return 5;
 	}
 
@@ -164,15 +165,15 @@ bool wave_prepare_headers(wave_stream_t *p_wavestrm)
 	// 
 	chunk.name = FMT_CHUNK;
 	chunk.size = (sizeof(WAVEFORMATEX) - sizeof(WORD));
-	if (fwrite(&chunk, sizeof(chunk), 1, fp) != 1) {
+	if (fwrite(&chunk, sizeof(chunk), 1, p_wavestrm->fp) != 1) {
 		printf("Failed to write 'fmt ' chunk header\n");
-		fclose(fp);
+		fclose(p_wavestrm->fp);
 		return 6;
 	}
 
-	if (fwrite(&p_wavestrm->format, chunk.size, 1, fp) != 1) {
+	if (fwrite(&p_wavestrm->format, chunk.size, 1, p_wavestrm->fp) != 1) {
 		printf("Failed to write 'fmt ' chunk data\n");
-		fclose(fp);
+		fclose(p_wavestrm->fp);
 		return 7;
 	}
 
@@ -181,9 +182,9 @@ bool wave_prepare_headers(wave_stream_t *p_wavestrm)
 	// 
 	chunk.name = DATA_CHUNK;
 	chunk.size = file_size - DATA_CHUNK_OFFSET;
-	if (fwrite(&chunk, sizeof(chunk), 1, fp) != 1) {
+	if (fwrite(&chunk, sizeof(chunk), 1, p_wavestrm->fp) != 1) {
 		printf("Failed to write 'data' chunk header\n");
-		fclose(fp);
+		fclose(p_wavestrm->fp);
 		return 8;
 	}
 	return false;
