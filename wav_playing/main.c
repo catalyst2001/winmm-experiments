@@ -51,7 +51,7 @@ typedef struct wave_s {
 // Finding a riff chunk in a file to read wav data blocks
 // 
 // p_dest_riff - pointer to riff_t structure instance to store readed data
-// fp          - pointer to opened file stream
+// fp          - pointer to opened file source
 // name        - FOURCC chunk 4 bytes name
 // 
 long find_riff_chunk(riff_t *p_dest_riff, FILE *fp, int name)

@@ -95,7 +95,7 @@ void free_wave(wave_t *p_wav)
 		free(p_wav->p_samples_data);
 }
 
-bool wave_create(wave_stream_t *p_wavestrm, const WAVEFORMATEX *p_wfex, const char *p_filename)
+bool wave_create(wave_source_t *p_wavestrm, const WAVEFORMATEX *p_wfex, const char *p_filename)
 {
 	p_wavestrm->total_bytes = 0;
 	p_wavestrm->fp = fopen(p_filename, "wb");
@@ -118,7 +118,7 @@ bool wave_create(wave_stream_t *p_wavestrm, const WAVEFORMATEX *p_wfex, const ch
 	return true;
 }
 
-bool wave_write_data(wave_stream_t *p_wavestrm, char *p_data, size_t size)
+bool wave_write_data(wave_source_t *p_wavestrm, char *p_data, size_t size)
 {
 	if (!size)
 		return false;
@@ -130,7 +130,7 @@ bool wave_write_data(wave_stream_t *p_wavestrm, char *p_data, size_t size)
 	return true;
 }
 
-bool wave_prepare_headers(wave_stream_t *p_wavestrm)
+bool wave_prepare_headers(wave_source_t *p_wavestrm)
 {
 	//save file size in bytes, for write this info to RIFF chunk
 	long file_size = ftell(p_wavestrm->fp);
@@ -190,7 +190,7 @@ bool wave_prepare_headers(wave_stream_t *p_wavestrm)
 	return false;
 }
 
-void wave_close(wave_stream_t *p_wavestrm)
+void wave_close(wave_source_t *p_wavestrm)
 {
 	fclose(p_wavestrm->fp);
 }

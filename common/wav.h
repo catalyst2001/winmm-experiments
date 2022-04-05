@@ -38,7 +38,7 @@ typedef struct wave_s {
 // Finding a riff chunk in a file to read wav data blocks
 // 
 // p_dest_riff - pointer to riff_t structure instance to store readed data
-// fp          - pointer to opened file stream
+// fp          - pointer to opened file source
 // name        - FOURCC chunk 4 bytes name
 // 
 long find_riff_chunk(riff_t *p_dest_riff, FILE *fp, int name);
@@ -73,11 +73,11 @@ void free_wave(wave_t *p_wav);
 // 3. wave_prepare_headers - prepares riff chunk headers for recording and writes them to the beginning of the file.
 // 4. wave_close - closes the file
 // ---------------------------------------------------------------------------------------------
-typedef struct wave_stream_s {
+typedef struct wave_source_s {
 	unsigned long long total_bytes;
 	WAVEFORMATEX format;
 	FILE *fp;
-} wave_stream_t;
+} wave_source_t;
 
 // 
 // wave_create
@@ -85,7 +85,7 @@ typedef struct wave_stream_s {
 // Creates wav file on disk
 // return true if file created
 // 
-bool wave_create(wave_stream_t *p_wavestrm, const WAVEFORMATEX *p_wfex, const char *p_filename);
+bool wave_create(wave_source_t *p_wavestrm, const WAVEFORMATEX *p_wfex, const char *p_filename);
 
 // 
 // wave_write_data
@@ -93,7 +93,7 @@ bool wave_create(wave_stream_t *p_wavestrm, const WAVEFORMATEX *p_wfex, const ch
 // Write audio data to file
 // return false if not free space on disk or data size equals NULL
 // 
-bool wave_write_data(wave_stream_t *p_wavestrm, char *p_data, size_t size);
+bool wave_write_data(wave_source_t *p_wavestrm, char *p_data, size_t size);
 
 // 
 // wave_prepare_headers
@@ -101,7 +101,7 @@ bool wave_write_data(wave_stream_t *p_wavestrm, char *p_data, size_t size);
 // Prepares riff chunk headers for recording and writes them to the beginning of the file.
 // PCM
 // 
-bool wave_prepare_headers(wave_stream_t *p_wavestrm);
+bool wave_prepare_headers(wave_source_t *p_wavestrm);
 
 // 
 // wave_get_total_bytes
@@ -115,4 +115,4 @@ bool wave_prepare_headers(wave_stream_t *p_wavestrm);
 // 
 // Close and save file
 // 
-void wave_close(wave_stream_t *p_wavestrm);
+void wave_close(wave_source_t *p_wavestrm);

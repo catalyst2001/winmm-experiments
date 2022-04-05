@@ -1,9 +1,11 @@
 ﻿// 
 // PCM WAV mixer demo
-// Author: Deryabin K.
+// Authors: Deryabin K. & Ilyichev I.
 // Date: 29.03.2022
 // 
 // These are parts of the early development of the "Theta Sound Engine" for game engine.
+// 
+// 
 // 
 #include "../common/wav.h"
 #include <mmsystem.h>
@@ -43,9 +45,10 @@ enum tse_device_init_status {
 
 #define SHORT_MIN -32768
 #define SHORT_MAX  32767
+#define USHORT_MAX 65535
 
 #define L 0
-#define R 0
+#define R 1
 #define tse_clamp(x, mn, mx) ((x > mx) ? mx : ((x < mn) ? mn : x))
 
 // 
@@ -62,7 +65,7 @@ enum tse_device_init_status {
 //  2 - Left Back (N/A)
 //  3 - Right Back (N/A)
 // 
-typedef struct sndstream_s {
+typedef struct sndsource_s {
 	i16 flags;
 	i16 status;
 	ui8 source_type;
@@ -73,7 +76,8 @@ typedef struct sndstream_s {
 	float position[3];
 	float direction[3];
 	float gain[2];
-} sndstream_t;
+	const char *p_debugname;
+} sndsource_t;
 
 // Mixer structure
 typedef struct sndmixer_s {
@@ -91,9 +95,9 @@ typedef struct sndmixer_s {
 	// give an error that the sound cannot be played back.
 	sndformat_t mixer_format;
 
-	i32 number_of_streams;
-	i32 active_streams;
-	sndstream_t *p_snd_streams;
+	i32 number_of_sources;
+	i32 active_sources;
+	sndsource_t *p_snd_sources;
 
 	f32 master_volume;
 	i64 out_samples_count_per_buffer;
@@ -104,6 +108,7 @@ typedef struct snd_device_s {
 	WAVEHDR buffers[8];
 	HWAVEOUT h_waveout;
 	sndmixer_t mixer;
+	CRITICAL_SECTION cs;
 } snd_device_t;
 
 enum tse_status {
@@ -117,54 +122,56 @@ enum tse_sourcetype {
 	TSE_SOURCE_FLAT		// for playing music in non-3D space
 };
 
-enum tse_sound_stream_status {
-	TSE_SSS_PLAYING = 1,// the stream is playing now
-	TSE_SSS_PAUSE,		// the stream is paused
+enum tse_sound_source_status {
+	TSE_SSS_PLAYING = 1,// the source is playing now
+	TSE_SSS_PAUSE,		// the source is paused
 	TSE_SSS_STOPPED,	// thread stopped and can be restarted
-	TSE_SSS_FREE,		// the stream is free and can be used
+	TSE_SSS_FREE,		// the source is free and can be used
 };
 
-#define TSE_SSF_LOOP (1 << 0)
+#define TSE_SSF_LOOP (1 << 1)
 
 // 
-// tse_create_sound_stream_ex
+// tse_create_sound_source_ex
 // 
-// Creates an audio stream for playback after mixing.
-// The mixer accepts multiple audio streams and mixes them
+// Creates an audio source for playback after mixing.
+// The mixer accepts multiple audio sources and mixes them
 // 
 // Souce types:
 //  
 //  
-int tse_create_sound_stream_ex(const ui8 c_soucre_type, const sndmixer_t *p_mixer, sndstream_t *p_stream, ui8 type, const sndformat_t *p_srcformat, const float *p_src_channels_volume, char *p_data, i64 buffer_size)
+int tse_create_sound_source_ex(const char *p_debug_source_name, const ui8 c_soucre_type, const i16 init_status, const i16 flags, const sndmixer_t *p_mixer, sndsource_t *p_source, ui8 type, const sndformat_t *p_srcformat, const float *p_src_channels_volume, char *p_data, i64 buffer_size)
 {
-	memset(p_stream, 0, sizeof(*p_stream));
-	p_stream->status = TSE_SSS_PLAYING;
+	memset(p_source, 0, sizeof(*p_source));
+	p_source->p_debugname = p_debug_source_name;
+	p_source->status = init_status;
+	p_source->flags = flags;
 	if (c_soucre_type != TSE_SOURCE_3D && c_soucre_type != TSE_SOURCE_FLAT)
 		return TSE_INVALID_PARAMETER;
 
-	p_stream->source_type = c_soucre_type;
+	p_source->source_type = c_soucre_type;
 
 	// copy audio format to sound steam structure
-	p_stream->format = *p_srcformat;
+	p_source->format = *p_srcformat;
 
 	// check format
-	if (p_stream->format.sample_rate != p_mixer->mixer_format.sample_rate)
+	if (p_source->format.sample_rate != p_mixer->mixer_format.sample_rate)
 		return TSE_UNSUPPORTED_FORMAT; // invalid sample rate
 
-	if (p_stream->format.bits_per_sample != p_mixer->mixer_format.bits_per_sample)
+	if (p_source->format.bits_per_sample != p_mixer->mixer_format.bits_per_sample)
 		return TSE_UNSUPPORTED_FORMAT; // invalid bps
 
-	if (p_stream->format.number_of_channels != p_mixer->mixer_format.number_of_channels)
+	if (p_source->format.number_of_channels != p_mixer->mixer_format.number_of_channels)
 		return TSE_UNSUPPORTED_FORMAT; // invalid channels number
 
 	// set channels volume
-	p_stream->gain[0] = tse_clamp(p_src_channels_volume[L], 0.f, 1.f); //left
-	p_stream->gain[1] = tse_clamp(p_src_channels_volume[R], 0.f, 1.f); //right
+	p_source->gain[L] = tse_clamp(p_src_channels_volume[L], 0.f, 1.f); //left
+	p_source->gain[R] = tse_clamp(p_src_channels_volume[R], 0.f, 1.f); //right
 
 	// store buffer address and size
-	p_stream->p_samples = (i16 *)p_data;
-	p_stream->buffer_size = buffer_size;
-	p_stream->read_position = 0;
+	p_source->p_samples = (i16 *)p_data;
+	p_source->buffer_size = buffer_size / p_mixer->mixer_format.bytes_per_sample; // bytes to samples count ( mixer default use 16-bit samples )
+	p_source->read_position = 0;
 	return TSE_OK;
 }
 
@@ -178,65 +185,65 @@ enum tse_mixer_status {
 // 
 // get_samples
 // 
-// Get stereo samples from sound stream
+// Get stereo samples from sound source in range -1.0 -- 1.0
 // 
-void get_samples(const sndmixer_t *p_mixer, f32 *p_samples, sndstream_t *p_stream)
+void get_samples(const sndmixer_t *p_mixer, f32 *p_samples, sndsource_t *p_source)
 {
 	// mono
 	/*if (p_mixer->mixer_format.number_of_channels == 1) {
-		float sample = p_stream->p_samples[p_stream->read_position];
-		p_samples[L] = p_stream->gain[L] * sample;
-		p_samples[R] = p_stream->gain[R] * sample;
+		float sample = p_source->p_samples[p_source->read_position];
+		p_samples[L] = p_source->gain[L] * sample;
+		p_samples[R] = p_source->gain[R] * sample;
 	}
 
 	// stereo
 	else */if (p_mixer->mixer_format.number_of_channels == 2) {
-		p_samples[L] = p_stream->gain[L] * p_stream->p_samples[p_stream->read_position];
-		p_samples[R] = p_stream->gain[R] * p_stream->p_samples[p_stream->read_position + 1];
+		p_samples[L] = p_source->gain[L] * (f32)(p_source->p_samples[p_source->read_position] / (f32)SHORT_MAX);
+		p_samples[R] = p_source->gain[R] * (f32)(p_source->p_samples[p_source->read_position + 1] / (f32)SHORT_MAX);
 	}
-	p_stream->read_position += p_mixer->mixer_format.number_of_channels;
+	p_source->read_position += p_mixer->mixer_format.number_of_channels;
 
 	// check the end of samples buffer
-	if (p_stream->read_position >= p_stream->buffer_size) {
-		p_stream->read_position = 0;
+	if (p_source->read_position >= p_source->buffer_size) {
+		p_source->read_position = 0;
 
 		// sound is looped ?
-		if (!(p_stream->flags & TSE_SSF_LOOP))
-			p_stream->status = TSE_SSS_STOPPED;
+		if (!(p_source->flags & TSE_SSF_LOOP))
+			p_source->status = TSE_SSS_STOPPED;
 	}
 }
 
 DWORD WINAPI mixer_thread(snd_device_t *p_device)
 {
-	sndstream_t *p_sound_stream;
+	sndsource_t *p_sound_source;
 	sndmixer_t *p_mixer = &p_device->mixer;
 	while (p_mixer->status == TSE_MIXER_STATUS_RUNNING) {
-		
+		WaitForSingleObject(p_mixer->h_event, INFINITE);
+
 		// playback buffers
 		const size_t num_of_buffers = cnt(p_device->buffers);
 		for (register size_t buffer_index = 0; buffer_index < num_of_buffers; buffer_index++) {
-
-			WaitForSingleObject(p_mixer->h_event, INFINITE);
-
+			
 			PWAVEHDR p_current_buffer = &p_device->buffers[buffer_index];
 			if (p_current_buffer->dwFlags & MHDR_DONE) {
 				p_current_buffer->dwFlags &= ~MHDR_DONE;
 				i16 *p_dest_samples = (i16 *)p_current_buffer->lpData;
 
+				EnterCriticalSection(&p_device->cs);
 				size_t i = 0;
 				while (i < p_mixer->out_samples_count_per_buffer) {
-					f32 stream_samples[2];
+					f32 source_samples[2];
 					f32 mixed_samples[2] = { 0.f, 0.f }; // L  R
 
-					// Mix audio streams samples
-					for (i32 j = 0; j < p_mixer->number_of_streams; j++) {
-						p_sound_stream = &p_mixer->p_snd_streams[j];
+					// Mix audio sources samples
+					for (i32 j = 0; j < p_mixer->number_of_sources; j++) {
+						p_sound_source = &p_mixer->p_snd_sources[j];
 
-						// is stream playing ?
-						if (p_sound_stream->status == TSE_SSS_PLAYING) {
-							get_samples(p_mixer, stream_samples, p_sound_stream);
-							mixed_samples[L] += stream_samples[L];
-							mixed_samples[R] += stream_samples[R];
+						// is source playing ?
+						if (p_sound_source->status == TSE_SSS_PLAYING) {
+							get_samples(p_mixer, source_samples, p_sound_source);
+							mixed_samples[L] += source_samples[L];
+							mixed_samples[R] += source_samples[R];
 						}
 					}
 
@@ -248,6 +255,7 @@ DWORD WINAPI mixer_thread(snd_device_t *p_device)
 					p_dest_samples[i++] = (i16)(p_mixer->master_volume * mixed_samples[L] * (f32)SHORT_MAX);
 					p_dest_samples[i++] = (i16)(p_mixer->master_volume * mixed_samples[R] * (f32)SHORT_MAX);
 				}
+				LeaveCriticalSection(&p_device->cs);
 
 				// send audio data to device driver
 				waveOutWrite(p_device->h_waveout, p_current_buffer, sizeof(*p_current_buffer));
@@ -260,18 +268,18 @@ DWORD WINAPI mixer_thread(snd_device_t *p_device)
 // 
 // tse_init_mixer
 // 
-// Creates a mixer and starts playing audio streams.
-// An audio stream is a loaded music file that can be played in parallel with other playing sounds.
+// Creates a mixer and starts playing audio sources.
+// An audio source is a loaded music file that can be played in parallel with other playing sounds.
 // 
 // return TSE_MIXER_STATUS_OK if inited succesfully
 // 
-int tse_init_mixer(snd_device_t *p_device, ui8 mixer_format_type, const sndformat_t *p_format, i32 number_of_streams, f32 master_volume)
+int tse_init_mixer(snd_device_t *p_device, ui8 mixer_format_type, const sndformat_t *p_format, i32 number_of_sources, f32 master_volume)
 {
 	p_device->mixer.master_volume = master_volume;
 	p_device->mixer.status = TSE_MIXER_STATUS_RUNNING;
-	p_device->mixer.number_of_streams = number_of_streams;
-	p_device->mixer.p_snd_streams = (sndstream_t *)calloc(p_device->mixer.number_of_streams, sizeof(sndstream_t));
-	assert(p_device->mixer.p_snd_streams);
+	p_device->mixer.number_of_sources = number_of_sources;
+	p_device->mixer.p_snd_sources = (sndsource_t *)calloc(p_device->mixer.number_of_sources, sizeof(sndsource_t));
+	assert(p_device->mixer.p_snd_sources);
 
 	p_device->mixer.mixer_format = *p_format;
 	p_device->mixer.out_samples_count_per_buffer = p_device->mixer.mixer_format.total_bytes_per_sec / p_device->mixer.mixer_format.number_of_channels;
@@ -322,6 +330,8 @@ int tse_init(snd_device_t *p_device, char *p_desterr, int maxlen, const tse_devi
 	if (waveOutOpen(0, (UINT)dev_id, &audio_format, 0, 0, WAVE_FORMAT_QUERY) != MMSYSERR_NOERROR)
 		return TSE_DEVICE_INIT_STATUS_NO_SUPPORT;
 
+	InitializeCriticalSection(&p_device->cs); // critical section for synchronize access to 'sound sources'
+
 	// Init mixer
 	if ((error = tse_init_mixer(p_device, (ui8)audio_format.wFormatTag, p_format, 128, master_volume)) != TSE_MIXER_STATUS_OK) {
 		sprintf_s(p_desterr, maxlen, "Failed to initialize mixer. Error %d (0x%x)", error, error);
@@ -345,7 +355,7 @@ int tse_init(snd_device_t *p_device, char *p_desterr, int maxlen, const tse_devi
 		waveOutPrepareHeader(p_device->h_waveout, p_curr_buffer, sizeof(*p_curr_buffer));
 		p_curr_buffer->dwFlags |= MHDR_DONE;
 	}
-	waveOutReset(p_device->h_waveout);
+	//waveOutReset(p_device->h_waveout);
 
 	// Start mixer thread
 	ResumeThread(p_device->mixer.h_thread);
@@ -366,34 +376,38 @@ int main()
 	format.total_bytes_per_sec = format.sample_rate * format.block_align;
 
 	char errorstr[512];
-	if (tse_init(&device, errorstr, sizeof(errorstr), WAVE_MAPPER, &format, format.total_bytes_per_sec, 0.1f) != TSE_DEVICE_INIT_STATUS_OK) {
+	if (tse_init(&device, errorstr, sizeof(errorstr), WAVE_MAPPER, &format, format.total_bytes_per_sec, 1.0f) != TSE_DEVICE_INIT_STATUS_OK) {
 		printf("Error init device: %s\n", errorstr);
 		return 2;
 	}
 
 	char filename[64];
-	sndstream_t streams[2];
-	sndformat_t stream_format;
+	sndsource_t sources[2];
+	sndformat_t source_format;
 	for (size_t i = 0; i < 2; i++) {
 		sprintf_s(filename, sizeof(filename), "%d.wav", i);
 		if (!load_wave(&sounds[i], filename)) {
 			printf("Failed to load wave sound!\n");
 			return 1;
 		}
-		stream_format.sample_rate = sounds[i].sample_rate;
-		stream_format.bits_per_sample = sounds[i].bits_per_samle;
-		stream_format.bytes_per_sample = sounds[i].bytes_per_sample;
-		stream_format.number_of_channels = sounds[i].number_of_channels;
+		source_format.sample_rate = sounds[i].sample_rate;
+		source_format.bits_per_sample = sounds[i].bits_per_samle;
+		source_format.bytes_per_sample = sounds[i].bytes_per_sample;
+		source_format.number_of_channels = sounds[i].number_of_channels;
 
-		float volume[] = { 1.f, 1.f }; //L  R
-		if (tse_create_sound_stream_ex(TSE_SOURCE_FLAT, &device.mixer, &device.mixer.p_snd_streams[i], WAVE_FORMAT_PCM,
-			&stream_format,
-			volume,
+		float volume[][2] = {
+			{ 1.0f, 1.0f },
+			{ 1.0f, 1.0f }
+		};
+
+		if (tse_create_sound_source_ex(filename, TSE_SOURCE_FLAT, TSE_SSS_PLAYING, TSE_SSF_LOOP, &device.mixer, &device.mixer.p_snd_sources[i], WAVE_FORMAT_PCM,
+			&source_format,
+			volume[i],
 			sounds[i].p_samples_data,
 			sounds[i].buffer_size) != TSE_OK) {
 			printf("Failed to create sound steam %d!\n", i);
 		}
-		streams[i].status = TSE_SSS_PLAYING;
+		sources[i].status = TSE_SSS_PLAYING;
 	}
 	WaitForSingleObject(device.mixer.h_thread, INFINITE);
 	free_wave(&sounds[0]);
