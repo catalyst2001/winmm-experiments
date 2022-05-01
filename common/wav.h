@@ -28,6 +28,17 @@ typedef struct wave_s {
 	char *p_samples_data;
 } wave_t;
 
+typedef struct sndformat2_s {
+	int wave_format;
+	int buffer_size;
+	int sample_rate;
+	int bits_per_samle;
+	int bytes_per_sample;
+	int number_of_channels;
+	int block_align;
+	int total_bytes_per_sec;
+} sndformat2_t;
+
 #define RIFF_CHUNK_SIZE   (sizeof(riff_t) + sizeof(int))
 #define FMT_CHUNK_SIZE    (sizeof(riff_t) + (sizeof(WAVEFORMATEX) - sizeof(WORD)))
 #define DATA_CHUNK_OFFSET (RIFF_CHUNK_SIZE + FMT_CHUNK_SIZE)
