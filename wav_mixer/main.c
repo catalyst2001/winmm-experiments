@@ -362,6 +362,11 @@ int tse_init(snd_device_t *p_device, char *p_desterr, int maxlen, const tse_devi
 	return TSE_DEVICE_INIT_STATUS_OK;
 }
 
+void tse_update_sources(snd_device_t *p_device, float *p_listener_origin, float *p_listener_dir)
+{
+	
+}
+
 wave_t sounds[2];
 snd_device_t device;
 
