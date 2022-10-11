@@ -11,6 +11,10 @@ Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "wav_resampling", "wav_resam
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "wav_mixer", "wav_mixer\wav_mixer.vcxproj", "{136F2969-D41E-4991-A03C-17EF443F5D66}"
 EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "sin_generator", "sin_generator\sin_generator.vcxproj", "{20274D63-A2C1-489D-81D0-26128C28673E}"
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "react_sound_engine", "react_sound_engine\react_sound_engine.vcxproj", "{97B6521E-7203-48E4-8C2E-89B57AFFA398}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|x64 = Debug|x64
@@ -51,6 +55,22 @@ Global
 		{136F2969-D41E-4991-A03C-17EF443F5D66}.Release|x64.Build.0 = Release|x64
 		{136F2969-D41E-4991-A03C-17EF443F5D66}.Release|x86.ActiveCfg = Release|Win32
 		{136F2969-D41E-4991-A03C-17EF443F5D66}.Release|x86.Build.0 = Release|Win32
+		{20274D63-A2C1-489D-81D0-26128C28673E}.Debug|x64.ActiveCfg = Debug|x64
+		{20274D63-A2C1-489D-81D0-26128C28673E}.Debug|x64.Build.0 = Debug|x64
+		{20274D63-A2C1-489D-81D0-26128C28673E}.Debug|x86.ActiveCfg = Debug|Win32
+		{20274D63-A2C1-489D-81D0-26128C28673E}.Debug|x86.Build.0 = Debug|Win32
+		{20274D63-A2C1-489D-81D0-26128C28673E}.Release|x64.ActiveCfg = Release|x64
+		{20274D63-A2C1-489D-81D0-26128C28673E}.Release|x64.Build.0 = Release|x64
+		{20274D63-A2C1-489D-81D0-26128C28673E}.Release|x86.ActiveCfg = Release|Win32
+		{20274D63-A2C1-489D-81D0-26128C28673E}.Release|x86.Build.0 = Release|Win32
+		{97B6521E-7203-48E4-8C2E-89B57AFFA398}.Debug|x64.ActiveCfg = Debug|x64
+		{97B6521E-7203-48E4-8C2E-89B57AFFA398}.Debug|x64.Build.0 = Debug|x64
+		{97B6521E-7203-48E4-8C2E-89B57AFFA398}.Debug|x86.ActiveCfg = Debug|Win32
+		{97B6521E-7203-48E4-8C2E-89B57AFFA398}.Debug|x86.Build.0 = Debug|Win32
+		{97B6521E-7203-48E4-8C2E-89B57AFFA398}.Release|x64.ActiveCfg = Release|x64
+		{97B6521E-7203-48E4-8C2E-89B57AFFA398}.Release|x64.Build.0 = Release|x64
+		{97B6521E-7203-48E4-8C2E-89B57AFFA398}.Release|x86.ActiveCfg = Release|Win32
+		{97B6521E-7203-48E4-8C2E-89B57AFFA398}.Release|x86.Build.0 = Release|Win32
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

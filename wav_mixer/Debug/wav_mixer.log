@@ -1,6 +1,2 @@
-﻿  wav.c
-e:\github\winmm-experiments\common\wav.c(57): warning C4047: функция: "int" отличается по уровням косвенного обращения от "void *"
-e:\github\winmm-experiments\common\wav.c(57): warning C4024: memset: различные типы для формального и фактического параметров 2
-  main.c
-  Создание кода...
+﻿  main.c
   wav_mixer.vcxproj -> E:\GITHUB\winmm-experiments\Debug\wav_mixer.exe
