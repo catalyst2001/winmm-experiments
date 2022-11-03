@@ -152,10 +152,20 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="main.c" />
+    <ClCompile Include="platform.c" />
     <ClCompile Include="sound_engine.c" />
+    <ClCompile Include="sound_engine_alsa.c" />
+    <ClCompile Include="sound_engine_dsound.c" />
+    <ClCompile Include="sound_engine_null.c" />
+    <ClCompile Include="sound_engine_winmm.c" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="platform.h" />
     <ClInclude Include="sound_engine.h" />
+    <ClInclude Include="sound_engine_alsa.h" />
+    <ClInclude Include="sound_engine_dsound.h" />
+    <ClInclude Include="sound_engine_null.h" />
+    <ClInclude Include="sound_engine_winmm.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

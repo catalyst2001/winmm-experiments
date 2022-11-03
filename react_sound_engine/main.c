@@ -49,7 +49,7 @@ void generate_graphic(const float *p_array, int count)
 
 	graph[WIDTH - 1][y_center] = '>';
 
-	float frequency = 1.0;
+	float frequency = 10.0;
 	float amplitude = 0.5;
 	float PI = 3.14f;
 	float PI2 = PI * 2;
