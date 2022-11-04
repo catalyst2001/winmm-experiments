@@ -1,0 +1,16 @@
+﻿  sound_engine.c
+e:\github\winmm-experiments\react_sound_engine\sound_engine.c(293): warning C4090: return: разные квалификаторы "const"
+e:\github\winmm-experiments\react_sound_engine\sound_engine.c(311): warning C4047: =: "snd_driver_interface_t *" отличается по уровням косвенного обращения от "const snd_driver_interface_t **"
+e:\github\winmm-experiments\react_sound_engine\sound_engine.c(349): warning C4047: =: "snd_source_t *" отличается по уровням косвенного обращения от "snd_source_t **"
+e:\github\winmm-experiments\react_sound_engine\sound_engine.c(335): warning C4101: source_samples: неиспользованная локальная переменная
+e:\github\winmm-experiments\react_sound_engine\sound_engine.c(401): warning C4101: p_buffer: неиспользованная локальная переменная
+e:\github\winmm-experiments\react_sound_engine\sound_engine.c(535): warning C4098: source_pause_fn: функция типа "void", возвращающая значение
+e:\github\winmm-experiments\react_sound_engine\sound_engine.c(537): warning C4098: source_pause_fn: функция типа "void", возвращающая значение
+e:\github\winmm-experiments\react_sound_engine\sound_engine.c(545): warning C4098: source_stop_fn: функция типа "void", возвращающая значение
+e:\github\winmm-experiments\react_sound_engine\sound_engine.c(547): warning C4098: source_stop_fn: функция типа "void", возвращающая значение
+  Создание кода
+  7 of 49 functions (14.3%) were compiled, the rest were copied from previous compilation.
+    2 functions were new in current compilation
+    0 functions had inline decision re-evaluated but remain unchanged
+  Создание кода завершено
+  react_sound_engine.vcxproj -> E:\GITHUB\winmm-experiments\Release\react_sound_engine.exe

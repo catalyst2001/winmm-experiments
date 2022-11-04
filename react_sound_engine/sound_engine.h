@@ -50,18 +50,25 @@ typedef void (*process_samples_fn)(float *p_samples, size_t num_of_samples_set, 
 /* sound flags */
 #define SF_NONE      (0)	   // For sound source not enabled flags
 #define SF_STREAMING (1 << 0)  // Source enabled streaming processing
+#define SF_LOAD_FROM_DISK (1 << 1)
 
 /* sound source flags */
 #define SSF_PITCH_CHANGED (1 << 0) // Sound source has changed pitch
 #define SSF_SPEED_CHANGED (1 << 1) // Source playback speed changed
 #define SSF_FX_ENABLED (1 << 2)	   // Source effect enabled
 #define SSF_REALTIME (1 << 3)      // Source is the source currently receiving the signal
+#define SSF_PLAYING (1 << 4)
+#define SSF_LOOPED (1 << 5)
 
 typedef void *SNDHANDLE;
 typedef SNDHANDLE HSOUND;
 typedef SNDHANDLE HFX;
 
+#define SND_FORMAT_PCM 0
+#define SND_FORMAT_FLOAT 1
+
 typedef struct snd_format_s {
+	long audio_format;
 	long bitrate;
 	long sample_rate;
 	long num_of_channels;
@@ -83,8 +90,18 @@ typedef struct snd_engine_initdata_s {
 	realloc_func_t realloc_func;
 } snd_engine_initdata_t;
 
+typedef struct snd_buffer_s {
+	size_t buffer_size;
+	size_t samples_set;
+	float *p_data;
+} snd_buffer_t;
+
 typedef struct snd_source_s {
-	size_t index_in_list;
+	int flags;
+	HSOUND h_sound;
+	size_t index_in_list; // index in active sources list
+	snd_buffer_t samples_buffer; //TODO: ???
+
 	// sample set it is number of sample sets for each channel
 	// that is: (0)[1 channel, 2 channel]  (1)[1 channel, 2 channel]  (2)[1 channel, 2 channel]
 	// address formule:  offset = index * num_of_channels
@@ -92,12 +109,6 @@ typedef struct snd_source_s {
 
 
 } snd_source_t;
-
-typedef struct snd_buffer_s {
-	size_t buffer_size;
-	size_t samples_set;
-	float *p_data;
-} snd_buffer_t;
 
 /* sound engine global flags */
 #define SEF_PLAYING (1 << 0)	  // Set this bit for start playing sounds
@@ -114,6 +125,9 @@ typedef struct snd_buffer_s {
 */
 #define IN_DEVICE 0
 #define OUT_DEVICE 1
+
+/* for change_device function */
+#define DEVICE_DEFAULT -1
 
 #define MAX_DEVICE_INFO 64 // max length of device info string
 
@@ -136,6 +150,7 @@ typedef struct snd_engine_dt_s {
 	/* direct interface */
 	void               (*set_info_message_callback)(info_msg_callback_pfn callback_pfn);
 	bool               (*init)(const snd_engine_initdata_t *p_init_data);
+	void               (*wait_threads)();
 	void               (*shutdown)();
 
 	void               (*set_flags)(int flags);
@@ -157,6 +172,7 @@ typedef struct snd_engine_dt_s {
 	float              (*sound_get_duration)(HSOUND h_sound);
 
 	/* sound sources */
+	bool               (*source_create)(snd_source_t *p_dst_source, HSOUND h_sound);
 	bool               (*source_reset)(snd_source_t *p_source);
 	bool               (*source_play)(snd_source_t *p_source, HSOUND h_sound);
 	void               (*source_pause)(snd_source_t *p_source, HSOUND h_sound);
@@ -203,6 +219,7 @@ typedef struct snd_driver_interface_s {
 	void (*driver_shutdown)();
 	void (*driver_lock)();
 	void (*driver_unlock)();
+	void (*driver_wait)();
 	bool (*driver_send_data)(const snd_buffer_t *p_src_buffer);
 	void (*driver_set_listen_samples_callback)(process_samples_fn listen_samples_processing_pfn);
 } snd_driver_interface_t;
