@@ -106,8 +106,8 @@ typedef struct snd_source_s {
 	// that is: (0)[1 channel, 2 channel]  (1)[1 channel, 2 channel]  (2)[1 channel, 2 channel]
 	// address formule:  offset = index * num_of_channels
 	size_t current_sample_set;
-
-
+	float speed;
+	float pitch;
 } snd_source_t;
 
 /* sound engine global flags */
@@ -207,9 +207,13 @@ typedef struct snd_engine_dt_s {
 
 snd_engine_dt_t *get_sound_engine_api(int api_version);
 
+#define IDDI_INIT_FUNCTIONS(flags, driver_name, query_devices_number_fn, query_device_information_fn, format_is_supported, init, switch_device, shutdown, lock, unlock, wait, send_data, set_listen_samples_callback) \
+	{ flags, driver_name, query_devices_number_fn, query_device_information_fn, format_is_supported, init, switch_device, shutdown, lock, unlock, wait, send_data, set_listen_samples_callback }
+
 /*   Independend Device Driver Interface (IDDI)   */
 typedef struct snd_driver_interface_s {
 	int flags;
+	const char *p_driver_name;
 	int  (*driver_query_devices_number)(int device);
 	bool (*driver_query_device_information)(snd_device_info_t *p_dst_info, int device_type, int device_index);
 

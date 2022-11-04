@@ -70,7 +70,7 @@ int main()
 	p_sndengine->set_info_message_callback(error_callback);
 
 	snd_engine_initdata_t init_props;
-	init_props.driver = DEVICE_WINMM_DRIVER;
+	init_props.driver = DEVICE_NULL_DRIVER;
 	init_props.sample_rate = 44100;
 	init_props.bitrate = 16;
 	init_props.num_of_channels = 2;
@@ -79,6 +79,8 @@ int main()
 		return 1;
 	}
 	print_devices(p_sndengine);
+
+	
 
 	HSOUND h_snd1;
 	if (!(h_snd1 = p_sndengine->sound_load_ex("1.wav", 0, SF_LOAD_FROM_DISK))) {

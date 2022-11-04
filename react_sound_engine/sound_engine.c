@@ -27,6 +27,9 @@ typedef struct snd_sources_list_s {
 	size_t size;
 } snd_sources_list_t;
 
+void empty_process_samples(float *p_samples, size_t num_of_samples_set, int samplerate, int num_of_channels) { }
+void empty_info_message_func(const char *p_string) { }
+
 /* globals */
 int driver_index = -1;
 int global_flags = 0;
@@ -41,8 +44,7 @@ realloc_func_t pfn_realloc = realloc;
 pthread_t h_mixer_thread;
 pthread_mutex_t h_synch_mutex;
 snd_sources_list_t active_sources_list;
-
-void empty_info_message_func(const char *p_string) { }
+process_samples_fn mic_process_samples = empty_process_samples;
 info_msg_callback_pfn info_message = empty_info_message_func;
 float master_volume[2] = { 1.f, 1.f }; //0 - in / 1 - out
 
@@ -162,7 +164,7 @@ bool snd_sound_set_transform_func(snd_sound_t *p_sound)
 		break;
 
 	default:
-		printf("r1snde: Unsupported audio format!\n");
+		info_message("r1snde: Unsupported audio format!\n");
 		return false;
 	}
 	return true;
@@ -308,7 +310,7 @@ bool snd_get_driver_dt(snd_driver_interface_t **p_dst_driver, int driver_index)
 		&impl_alsa_dt;
 #endif
 	};
-	(*p_dst_driver) = &p_interfaces[driver_index];
+	(*p_dst_driver) = p_interfaces[driver_index];
 	return true;
 }
 

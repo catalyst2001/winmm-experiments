@@ -1,3 +1,2 @@
-﻿  main.c
-e:\github\winmm-experiments\react_sound_engine\main.c(59): warning C4244: функция: преобразование "float" в "int", возможна потеря данных
+﻿  sound_engine_null.c
   react_sound_engine.vcxproj -> E:\GITHUB\winmm-experiments\Debug\react_sound_engine.exe
