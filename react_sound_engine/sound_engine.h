@@ -23,7 +23,8 @@ typedef unsigned char snd_uchar;
 
 /* supported devices */
 enum DEVICE_DRIVERS {
-	DEVICE_NULL_DRIVER = 0,	 // Null device driver. Enable this for debug
+	DEVICE_NOT_SET = -1,
+	DEVICE_NULL_DRIVER,	     // Null device driver. Enable this for debug
 	DEVICE_WINMM_DRIVER,	 // Windows Multimedia Library using
 	DEVICE_DSOUND_DRIVER,	 // Windows Direct Sound
 #ifdef LINUX
@@ -56,9 +57,9 @@ typedef void (*process_samples_fn)(float *p_samples, size_t num_of_samples_set, 
 #define SSF_PITCH_CHANGED (1 << 0) // Sound source has changed pitch
 #define SSF_SPEED_CHANGED (1 << 1) // Source playback speed changed
 #define SSF_FX_ENABLED (1 << 2)	   // Source effect enabled
-#define SSF_REALTIME (1 << 3)      // Source is the source currently receiving the signal
-#define SSF_PLAYING (1 << 4)
-#define SSF_LOOPED (1 << 5)
+#define SSF_VARYING (1 << 3)      // Source is the source currently receiving the signal
+#define SSF_PLAYING (1 << 4)       // Source is playing currently
+#define SSF_LOOPED (1 << 5)       // Source playing has looped
 
 typedef void *SNDHANDLE;
 typedef SNDHANDLE HSOUND;
@@ -105,7 +106,9 @@ typedef struct snd_source_s {
 	// sample set it is number of sample sets for each channel
 	// that is: (0)[1 channel, 2 channel]  (1)[1 channel, 2 channel]  (2)[1 channel, 2 channel]
 	// address formule:  offset = index * num_of_channels
+	size_t total_samples_sets;
 	size_t current_sample_set;
+	//size_t current_position;
 	float speed;
 	float pitch;
 } snd_source_t;
@@ -203,12 +206,18 @@ typedef struct snd_engine_dt_s {
 	void               (*buffer_free)(snd_buffer_t *p_src_buffer);
 
 	/* engine functions */
+	bool (*engine_register_fx)();
+	bool (*engine_unregister_fx)();
 } snd_engine_dt_t;
 
 snd_engine_dt_t *get_sound_engine_api(int api_version);
 
 #define IDDI_INIT_FUNCTIONS(flags, driver_name, query_devices_number_fn, query_device_information_fn, format_is_supported, init, switch_device, shutdown, lock, unlock, wait, send_data, set_listen_samples_callback) \
 	{ flags, driver_name, query_devices_number_fn, query_device_information_fn, format_is_supported, init, switch_device, shutdown, lock, unlock, wait, send_data, set_listen_samples_callback }
+
+#ifdef _MSC_VER
+#define SAFE_DTCALL(dt, func, ...) if(dt) (dt)->func(__VA_ARGS__)
+#endif
 
 /*   Independend Device Driver Interface (IDDI)   */
 typedef struct snd_driver_interface_s {

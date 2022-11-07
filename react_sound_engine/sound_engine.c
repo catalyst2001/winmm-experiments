@@ -31,7 +31,7 @@ void empty_process_samples(float *p_samples, size_t num_of_samples_set, int samp
 void empty_info_message_func(const char *p_string) { }
 
 /* globals */
-int driver_index = -1;
+int driver_index = DEVICE_NOT_SET;
 int global_flags = 0;
 int last_error_code = SNDE_ERROR_NONE;
 snd_driver_interface_t *p_driver = NULL;
@@ -82,9 +82,8 @@ bool snd_source_list_remove(snd_sources_list_t *p_dstlist, snd_source_t *p_sourc
 				p_dstlist->size--; //decrease size of list
 				return true;
 			}
-
-			//move the element from the end to this position
-			p_dstlist->p_sources[p_source->index_in_list] = p_dstlist->p_sources[p_dstlist->size];
+			p_dstlist->p_sources[p_source->index_in_list] = p_dstlist->p_sources[p_dstlist->size]; //move the element from the end to this position
+			p_dstlist->p_sources[p_source->index_in_list]->index_in_list = p_source->index_in_list; //store new index in moved source
 			p_dstlist->size--; //decrease size of list
 			return true;
 		}
@@ -104,10 +103,11 @@ bool snd_source_list_remove(snd_sources_list_t *p_dstlist, snd_source_t *p_sourc
 
 // data for HSOUND
 typedef struct snd_sound_s {
-	float maxval;
+	float maxval; // the maximum allowable value of the specified sample bitrate for division (2 ^ bits_number)
 	int flags;
 	snd_format_t format;
 	FILE *fp;
+	fpos_t file_offset;
 	size_t block_size;
 	size_t buffer_size;
 	snd_uchar *p_buffer;
@@ -119,19 +119,19 @@ float float_sample(void *p_data, snd_format_t *p_format, float maxval, size_t po
 	float sample;
 	switch (p_format->bitrate) {
 	case 8:
-		sample = (float)(((char *)p_data)[position]);
+		sample = (float)((float)((char *)p_data)[position] / maxval);
 		break;
 
 	case 16:
-		sample = (float)(((short *)p_data)[position]);
+		sample = (float)((float)((short *)p_data)[position] / maxval);
 		break;
 
 	case 32:
-		sample = (float)(((int *)p_data)[position]);
+		sample = (float)((float)((int *)p_data)[position] / maxval);
 		break;
 
 	case 64:
-		sample = (float)(((long long *)p_data)[position]);
+		sample = (float)((float)((long long *)p_data)[position] / maxval);
 		break;
 	}
 	return sample;
@@ -252,18 +252,24 @@ snd_engine_dt_t *get_sound_engine_api(int api_version)
 	static const snd_engine_dt_t sndapi = {
 		.set_info_message_callback = set_info_message_callback,
 		.init = init_fn,
+		.wait_threads = wait_threads,
 		.shutdown = shutdown_fn,
 
 		.set_flags = set_flags_fn,
 		.get_flags = get_flags_fn,
 		.last_error_string = last_error_string_fn,
+		.get_devices_number = 0,
+		.get_device_info = 0,
 		.switch_driver = switch_driver_fn,
 		.change_device = change_device_fn,
+		.set_volume = 0,
+		.get_volume = 0,
 
 		.set_listening_samples_callback = set_listening_samples_callback_fn,
 
 		.sound_load_ex = sound_load_ex_fn,
 		.sound_free_ex = sound_free_ex_fn,
+		.sound_get_duration = 0,
 
 		.source_create = source_create,
 		.source_reset = source_reset_fn,
@@ -287,10 +293,10 @@ snd_engine_dt_t *get_sound_engine_api(int api_version)
 
 		.source_apply_fx = source_apply_fx_fn,
 		.source_remove_fx = source_remove_fx_fn,
+		.source_set_order_fx = 0,
 
 		.buffer_create = buffer_create_fn,
 		.buffer_free = buffer_free_fn,
-		.wait_threads = wait_threads
 	};
 	return &sndapi;
 }
@@ -316,18 +322,46 @@ bool snd_get_driver_dt(snd_driver_interface_t **p_dst_driver, int driver_index)
 
 void snd_source_get_samples(float *p_dst_samples, snd_source_t *p_source)
 {
+	p_dst_samples[L] = p_dst_samples[R] = 0.f; //reset values
+
 	// if sound assigned
+	snd_sound_t *p_sound;
 	if (p_source->h_sound) {
-		snd_sound_t *p_sound = (snd_sound_t *)p_source->h_sound;
-	}
+		if (!(p_source->flags & SSF_VARYING)) {
+			snd_format_t *p_sound_format = &p_sound->format;
+			size_t position = p_source->current_sample_set * p_sound_format->num_of_channels;
+			p_sound = (snd_sound_t *)p_source->h_sound;
+			if (p_sound_format->num_of_channels == 2) { // stereo samples
+				p_dst_samples[L] = float_sample(p_sound->p_buffer, p_sound_format, p_sound->maxval, position + 0); // 0 - L
+				p_dst_samples[R] = float_sample(p_sound->p_buffer, p_sound_format, p_sound->maxval, position + 1); // 1 - R
+			}
+			else { //mono sample
+				float sample = float_sample(p_sound->p_buffer, p_sound_format, p_sound->maxval, position);
+				p_dst_samples[L] = sample;
+				p_dst_samples[R] = sample;
+			}
+		}
+		p_source->current_sample_set++;
 
-	if (format.num_of_channels == 2) {
-		//p_dst_samples[L] = 
-	}
-	else {
-
+		// check end of buffer
+		if (p_source->current_sample_set >= p_source->total_samples_sets) {
+			p_source->current_sample_set = 0;
+			if (!(p_source->flags & SSF_LOOPED)) {
+				if (snd_source_list_remove(&active_sources_list, p_source)) {
+					p_source->flags &= ~SSF_PLAYING;
+				}
+			}
+		}
 	}
 }
+
+// 
+// mixing methods
+// 
+// 0 - add all samples of all active sources and then cut of -1.0 to 1.0
+// 1 - divide each source sample to samples count and add all this
+// 
+#define MIXING_METHOD 0
 
 void *mixer_thread_proc(void *p_arg)
 {
@@ -347,21 +381,32 @@ void *mixer_thread_proc(void *p_arg)
 
 				// iterate through all active sound sources
 				for (size_t srcidx = 0; srcidx < active_sources_list.size; srcidx++) {
+#if MIXING_METHOD == 1
 					float flt_sources_count = (float)active_sources_list.size;
+#endif
 					if ((p_source = snd_sources_get_source(&active_sources_list, srcidx))) {
 						if ((p_source->flags & SSF_PLAYING)) {
-
+							snd_source_get_samples(source_samples, p_source);
+#if MIXING_METHOD == 1
+							source_samples[L] /= flt_sources_count;
+							source_samples[R] /= flt_sources_count;
+#endif
+							mixed_samples[L] += source_samples[L];
+							mixed_samples[R] += source_samples[R];
 						}
 					}
 				}
 
+#if MIXING_METHOD == 0
 				// Limit the range of sum of samples to prevent clicks
 				mixed_samples[L] = snd_clamp(mixed_samples[L], -1.0f, 1.0f);
 				mixed_samples[R] = snd_clamp(mixed_samples[R], -1.0f, 1.0f);
-
+#endif
 				// Fill samples
 				p_buffer->p_data[sampleidx++] = master_volume[OUT_DEVICE] * mixed_samples[L];
 				p_buffer->p_data[sampleidx++] = master_volume[OUT_DEVICE] * mixed_samples[R];
+
+				p_driver->driver_send_data(p_buffer); //send data to device driver
 			}
 			p_driver->driver_unlock(); //unlock
 		}
@@ -372,14 +417,13 @@ void *mixer_thread_proc(void *p_arg)
 /* direct interface */
 bool init_fn(const snd_engine_initdata_t *p_init_data)
 {
-	info_message("Initializing engine...");
+	info_message("Initializing sound engine...");
 
 	// check for already initialized
 	if ((snd_get_gflags() & SEF_INITIALIZED) || p_driver) {
 		snd_set_last_error(SNDE_ERROR_ALREADY_INITIALIZED);
 		return false;
 	}
-
 	snd_fill_format(&format, p_init_data->num_of_channels, p_init_data->sample_rate, p_init_data->bitrate);
 
 	/* check errors */
@@ -433,7 +477,7 @@ bool init_fn(const snd_engine_initdata_t *p_init_data)
 		return false;
 	}
 
-	info_message("Engine succesfully initialized!");
+	info_message("Sound engine succesfully initialized!");
 	return true;
 }
 
@@ -467,10 +511,13 @@ bool switch_driver_fn(int device_driver)
 	snd_driver_interface_t *p_new_driver, *p_old_driver;
 	// if selected driver interface not equal already used interface
 	if (driver_index != device_driver) {
-		driver_index = device_driver;
 
 		// get old driver interface and new device interface
-		if (!snd_get_driver_dt(&p_old_driver, driver_index) || snd_get_driver_dt(&p_new_driver, device_driver))
+		if (driver_index != -1 && !snd_get_driver_dt(&p_old_driver, driver_index))
+			return false;
+
+		driver_index = device_driver;
+		if (!snd_get_driver_dt(&p_new_driver, device_driver))
 			return false;
 
 		// init new interface
@@ -549,18 +596,35 @@ void source_stop_fn(snd_source_t *p_source, HSOUND h_sound)
 	return true;
 }
 
-
 void source_set_position_fn(snd_source_t *p_source, float position)
 {
+	if (p_source && p_source->h_sound) {
+		snd_sound_t *p_sound = (snd_sound_t *)p_source->h_sound;
+
+		// streaming sound
+		if ((p_sound->flags & SF_STREAMING)) {
+			//TODO: implement this
+		}
+		else { // full preloaded no-streaming sound
+			long bytes_per_sample = (p_sound->format.bitrate / 8);
+			long total_samples_count = p_sound->buffer_size / bytes_per_sample;
+			long total_samples_sets_count = total_samples_count / p_sound->format.num_of_channels;
+			p_source->current_sample_set = (size_t)(p_sound->format.sample_rate * total_samples_sets_count);
+		}
+	}
 }
 
-void source_set_speed_fn(snd_source_t *p_source, float position)
+void source_set_speed_fn(snd_source_t *p_source, float speed)
 {
+	p_source->speed = speed;
 }
 
 void source_set_pitch_fn(snd_source_t *p_source, float pitch)
 {
+	p_source->pitch = pitch;
 }
+
+#define FROM_OFFS(type, addr, offs) *(type *)((char *)addr + offs)
 
 
 /* sound effects */
@@ -570,32 +634,40 @@ bool fx_create_ex_fn(HFX *p_dst_hfx, size_t reserve, const char *p_fxname)
 
 void *fx_get_data_fn(HFX src_hfx)
 {
+	return (void *)src_hfx;
 }
 
 void fx_set_int_fn(HFX src_hfx, int offset, int ivalue)
 {
+	FROM_OFFS(int, src_hfx, offset) = ivalue;
 }
 
 int  fx_get_int_fn(HFX src_hfx, int offset)
 {
+	return FROM_OFFS(int, src_hfx, offset);
 }
 
 void fx_set_float_fn(HFX src_hfx, int offset, float fvalue)
 {
+	FROM_OFFS(float, src_hfx, offset) = fvalue;
 }
 
 float fx_get_float_fn(HFX src_hfx, int offset)
 {
+	return FROM_OFFS(float, src_hfx, offset);
 }
 
 void fx_set_vector_fn(HFX src_hfx, int offset, const float *p_fvvalue)
 {
-
+	float *p_dstvec = FROM_OFFS(float *, src_hfx, offset);
+	p_dstvec[0] = p_fvvalue[0];
+	p_dstvec[1] = p_fvvalue[1];
+	p_dstvec[2] = p_fvvalue[2];
 }
 
 const float *fx_get_vector_fn(HFX src_hfx, int offset)
 {
-
+	return FROM_OFFS(float *, src_hfx, offset);
 }
 
 void fx_free_ex_fn(HFX src_hfx)

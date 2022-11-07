@@ -11,4 +11,7 @@
 #pragma once
 #include "sound_engine.h"
 
+#include <Windows.h>
+#include <mmsystem.h>
+
 extern snd_driver_interface_t impl_winmm_dt;

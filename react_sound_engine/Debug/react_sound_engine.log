@@ -1,2 +1,21 @@
-﻿  sound_engine_null.c
+﻿  sound_engine.c
+e:\github\winmm-experiments\react_sound_engine\sound_engine.c(295): warning C4090: return: разные квалификаторы "const"
+e:\github\winmm-experiments\react_sound_engine\sound_engine.c(313): warning C4090: =: разные квалификаторы "const"
+e:\github\winmm-experiments\react_sound_engine\sound_engine.c(356): warning C4047: =: "snd_source_t *" отличается по уровням косвенного обращения от "snd_source_t **"
+e:\github\winmm-experiments\react_sound_engine\sound_engine.c(413): warning C4101: p_buffer: неиспользованная локальная переменная
+e:\github\winmm-experiments\react_sound_engine\sound_engine.c(547): warning C4098: source_pause_fn: функция типа "void", возвращающая значение
+e:\github\winmm-experiments\react_sound_engine\sound_engine.c(549): warning C4098: source_pause_fn: функция типа "void", возвращающая значение
+e:\github\winmm-experiments\react_sound_engine\sound_engine.c(557): warning C4098: source_stop_fn: функция типа "void", возвращающая значение
+e:\github\winmm-experiments\react_sound_engine\sound_engine.c(559): warning C4098: source_stop_fn: функция типа "void", возвращающая значение
+e:\github\winmm-experiments\react_sound_engine\sound_engine.c(468): warning C4716: get_flags_fn: должна возвращать значение
+e:\github\winmm-experiments\react_sound_engine\sound_engine.c(508): warning C4716: set_listening_samples_callback_fn: должна возвращать значение
+e:\github\winmm-experiments\react_sound_engine\sound_engine.c(515): warning C4716: sound_load_ex_fn: должна возвращать значение
+e:\github\winmm-experiments\react_sound_engine\sound_engine.c(472): warning C4716: last_error_string_fn: должна возвращать значение
+e:\github\winmm-experiments\react_sound_engine\sound_engine.c(519): warning C4716: sound_free_ex_fn: должна возвращать значение
+e:\github\winmm-experiments\react_sound_engine\sound_engine.c(579): warning C4716: fx_create_ex_fn: должна возвращать значение
+e:\github\winmm-experiments\react_sound_engine\sound_engine.c(583): warning C4716: fx_get_data_fn: должна возвращать значение
+e:\github\winmm-experiments\react_sound_engine\sound_engine.c(591): warning C4716: fx_get_int_fn: должна возвращать значение
+e:\github\winmm-experiments\react_sound_engine\sound_engine.c(599): warning C4716: fx_get_float_fn: должна возвращать значение
+e:\github\winmm-experiments\react_sound_engine\sound_engine.c(609): warning C4716: fx_get_vector_fn: должна возвращать значение
+e:\github\winmm-experiments\react_sound_engine\sound_engine.c(632): warning C4716: buffer_create_fn: должна возвращать значение
   react_sound_engine.vcxproj -> E:\GITHUB\winmm-experiments\Debug\react_sound_engine.exe

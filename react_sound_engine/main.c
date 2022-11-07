@@ -66,34 +66,41 @@ void print_devices(snd_engine_dt_t *p_engine)
 
 int main()
 {
-	p_sndengine = get_sound_engine_api(SND_API_VERSION);
-	p_sndengine->set_info_message_callback(error_callback);
+	//p_sndengine = get_sound_engine_api(SND_API_VERSION);
+	//p_sndengine->set_info_message_callback(error_callback);
 
-	snd_engine_initdata_t init_props;
-	init_props.driver = DEVICE_NULL_DRIVER;
-	init_props.sample_rate = 44100;
-	init_props.bitrate = 16;
-	init_props.num_of_channels = 2;
-	if (!p_sndengine->init(&init_props)) {
-		printf("Failed to init sound engine! Error: %s\n", p_sndengine->last_error_string());
-		return 1;
+	//snd_engine_initdata_t init_props;
+	//init_props.driver = DEVICE_NULL_DRIVER;
+	//init_props.sample_rate = 44100;
+	//init_props.bitrate = 16;
+	//init_props.num_of_channels = 2;
+	//if (!p_sndengine->init(&init_props)) {
+	//	printf("Failed to init sound engine! Error: %s\n", p_sndengine->last_error_string());
+	//	return 1;
+	//}
+	//print_devices(p_sndengine);
+
+	//
+
+	//HSOUND h_snd1;
+	//if (!(h_snd1 = p_sndengine->sound_load_ex("1.wav", 0, SF_LOAD_FROM_DISK))) {
+	//	printf("Failed to load sound! Error: %s\n", p_sndengine->last_error_string());
+	//	return 1;
+	//}
+
+	//snd_source_t source1;
+	//if (p_sndengine->source_create(&source1, h_snd1)) {
+	//	p_sndengine->source_play(&source1, h_snd1);
+	//}
+
+	//p_sndengine->wait_threads();
+	//p_sndengine->shutdown();
+
+	size_t samples = 44100;
+	size_t channels = 2;
+	for (size_t sample_set = 0; sample_set < samples; sample_set++) {
+		printf(" %d", sample_set * channels);
 	}
-	print_devices(p_sndengine);
 
-	
-
-	HSOUND h_snd1;
-	if (!(h_snd1 = p_sndengine->sound_load_ex("1.wav", 0, SF_LOAD_FROM_DISK))) {
-		printf("Failed to load sound! Error: %s\n", p_sndengine->last_error_string());
-		return 1;
-	}
-
-	snd_source_t source1;
-	if (p_sndengine->source_create(&source1, h_snd1)) {
-		p_sndengine->source_play(&source1, h_snd1);
-	}
-
-	p_sndengine->wait_threads();
-	p_sndengine->shutdown();
 	return 0;
 }
