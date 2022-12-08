@@ -201,7 +201,7 @@ void set_info_message_callback(info_msg_callback_pfn p_fn)
 	info_message = p_fn;
 }
 
-bool init_fn(const snd_engine_initdata_t *p_init_data);
+bool init_device_fn(const snd_engine_initdata_t *p_init_data);
 void shutdown_fn();
 
 void set_flags_fn(int flags);
@@ -251,9 +251,9 @@ snd_engine_dt_t *get_sound_engine_api(int api_version)
 {
 	static const snd_engine_dt_t sndapi = {
 		.set_info_message_callback = set_info_message_callback,
-		.init = init_fn,
+		.init_device = init_device_fn,
 		.wait_threads = wait_threads,
-		.shutdown = shutdown_fn,
+		.shutdown_device = shutdown_fn,
 
 		.set_flags = set_flags_fn,
 		.get_flags = get_flags_fn,
@@ -325,12 +325,11 @@ void snd_source_get_samples(float *p_dst_samples, snd_source_t *p_source)
 	p_dst_samples[L] = p_dst_samples[R] = 0.f; //reset values
 
 	// if sound assigned
-	snd_sound_t *p_sound;
 	if (p_source->h_sound) {
 		if (!(p_source->flags & SSF_VARYING)) {
+			snd_sound_t *p_sound = (snd_sound_t *)p_source->h_sound;
 			snd_format_t *p_sound_format = &p_sound->format;
 			size_t position = p_source->current_sample_set * p_sound_format->num_of_channels;
-			p_sound = (snd_sound_t *)p_source->h_sound;
 			if (p_sound_format->num_of_channels == 2) { // stereo samples
 				p_dst_samples[L] = float_sample(p_sound->p_buffer, p_sound_format, p_sound->maxval, position + 0); // 0 - L
 				p_dst_samples[R] = float_sample(p_sound->p_buffer, p_sound_format, p_sound->maxval, position + 1); // 1 - R
@@ -415,7 +414,7 @@ void *mixer_thread_proc(void *p_arg)
 }
 
 /* direct interface */
-bool init_fn(const snd_engine_initdata_t *p_init_data)
+bool init_device_fn(const snd_engine_initdata_t *p_init_data)
 {
 	info_message("Initializing sound engine...");
 
@@ -427,17 +426,17 @@ bool init_fn(const snd_engine_initdata_t *p_init_data)
 	snd_fill_format(&format, p_init_data->num_of_channels, p_init_data->sample_rate, p_init_data->bitrate);
 
 	/* check errors */
-	if (!snd_get_driver_dt(&p_driver, p_init_data->driver))
+	if (!snd_get_driver_dt(&p_driver, p_init_data->driver)) //TODO: remove this
 		return false;
 
-	if (!p_driver->driver_format_is_supported(&format)) {
+	if (!p_driver->driver_format_is_supported(p_init_data->device, &format)) {
 		snd_set_last_error(SNDE_ERROR_DEVICE_NOT_SUPPORT_FORMAT);
 		return false;
 	}
 	snd_set_gflag(SEF_INITIALIZED);
 
-	/* init device */
-	if (!p_driver->driver_init(&format)) {
+	/* init_device device */
+	if (!p_driver->driver_init(p_init_data->device, &format)) {
 		snd_set_last_error(SNDE_ERROR_DEVICE_DRIVER_REPORTED_ERROR);
 		return false;
 	}
@@ -464,13 +463,13 @@ bool init_fn(const snd_engine_initdata_t *p_init_data)
 		}
 	}
 
-	/* init active sources list */
+	/* init_device active sources list */
 	if (!snd_source_list_alloc(&active_sources_list, MAX_SOURCE_LIST_SIZE)) {
 		snd_set_last_error(SNDE_ERROR_OUT_OF_MEMORY);
 		return false;
 	}
 
-	/* init mixer */
+	/* init_device mixer */
 	snd_set_gflag(SEF_MIXER_READY);
 	if (pthread_create(&h_mixer_thread, (const pthread_attr_t *)NULL, mixer_thread_proc, 0)) {
 		snd_set_last_error(SNDE_ERROR_CREATE_MIXER_THREAD);
@@ -508,7 +507,7 @@ const char *last_error_string_fn()
 bool switch_driver_fn(int device_driver)
 {
 	info_message("Driver switched");
-	snd_driver_interface_t *p_new_driver, *p_old_driver;
+	snd_driver_interface_t *p_new_driver = NULL, *p_old_driver = NULL; //TODO: CHECK THIS!
 	// if selected driver interface not equal already used interface
 	if (driver_index != device_driver) {
 
@@ -520,11 +519,12 @@ bool switch_driver_fn(int device_driver)
 		if (!snd_get_driver_dt(&p_new_driver, device_driver))
 			return false;
 
-		// init new interface
-		if (!p_new_driver->driver_init(&format))
-			return false;
+		//TODO: ADD OLD AUTO DEVICES INIT!
+		// init_device new interface
+		//if (!p_new_driver->driver_init(&format))
+		//	return false;
 
-		p_old_driver->driver_shutdown(); // shutdown old interface
+		p_old_driver->driver_shutdown(); // shutdown_device old interface
 		p_driver = p_new_driver; // store new device interface address
 		return true;
 	}
@@ -608,8 +608,8 @@ void source_set_position_fn(snd_source_t *p_source, float position)
 		else { // full preloaded no-streaming sound
 			long bytes_per_sample = (p_sound->format.bitrate / 8);
 			long total_samples_count = p_sound->buffer_size / bytes_per_sample;
-			long total_samples_sets_count = total_samples_count / p_sound->format.num_of_channels;
-			p_source->current_sample_set = (size_t)(p_sound->format.sample_rate * total_samples_sets_count);
+			long total_samples_sets_count = total_samples_count / p_sound->format.num_of_channels; //TODO: возможно что неверно? 
+			p_source->current_sample_set = (size_t)(p_sound->format.sample_rate * total_samples_sets_count); //TODO: скорее всего sr * tsc
 		}
 	}
 }

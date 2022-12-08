@@ -13,5 +13,6 @@
 
 #include <Windows.h>
 #include <mmsystem.h>
+#pragma comment(lib, "winmm.lib")
 
 extern snd_driver_interface_t impl_winmm_dt;

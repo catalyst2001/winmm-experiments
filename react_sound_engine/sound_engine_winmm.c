@@ -1,13 +1,84 @@
 #include "sound_engine_winmm.h"
 #include <mmreg.h>
 
+//typedef MMRESULT(WINAPI *PWAVEOPENFN)(
+//	_Out_opt_ LPHWAVEIN phwi,
+//	_In_ UINT uDeviceID,
+//	_In_ LPCWAVEFORMATEX pwfx,
+//	_In_opt_ DWORD_PTR dwCallback,
+//	_In_opt_ DWORD_PTR dwInstance,
+//	_In_ DWORD fdwOpen
+//	);
+//
+//typedef UINT (WINAPI *WAVEGETNUMDEVSFN)(void);
+//
+//typedef MMRESULT (WINAPI *WAVEGETERRORTEXTA)(
+//	_In_ MMRESULT mmrError,
+//	_Out_writes_(cchText) LPSTR pszText,
+//	_In_ UINT cchText
+//);
+//
+//typedef MMRESULT (WINAPI *WAVEGETDEVCAPSA)(
+//	_In_ UINT_PTR uDeviceID,
+//	_Out_writes_bytes_(cbwic) LPWAVEINCAPSA pwic,
+//	_In_ UINT cbwic
+//);
+//
+//HMODULE h_winmm;
+//union {
+//	PWAVEOPENFN wave_open_vfn[2];
+//	struct {
+//		PWAVEOPENFN wave_in_open_pfn;
+//		PWAVEOPENFN wave_out_open_pfn;
+//	};
+//} open;
+//
+//union {
+//	WAVEGETDEVCAPSA wave_get_dev_capsa_vfn[2];
+//	struct {
+//		WAVEGETDEVCAPSA wave_in_get_dev_capsa_pfn;
+//		WAVEGETDEVCAPSA wave_out_get_dev_capsa_pfn;
+//	};
+//} devcaps;
+//
+//union {
+//	WAVEGETNUMDEVSFN wave_get_num_devs_vfn[2];
+//	struct {
+//		WAVEGETNUMDEVSFN wave_in_get_num_devs;
+//		WAVEGETNUMDEVSFN wave_out_get_num_devs;
+//	};
+//} numdevs;
+//
+//#define wave_in_open open.wave_in_open_pfn
+//#define wave_out_open open.wave_out_open_pfn
+//#define wave_in_get_dev_capsa devcaps.wave_in_get_dev_capsa_pfn
+//#define wave_out_get_dev_capsa devcaps.wave_out_get_dev_capsa_pfn
+//#define wave_in_get_num_devs numdevs.wave_in_get_num_devs
+//#define wave_out_get_num_devs numdevs.wave_out_get_num_devs
+//
+//bool init_windows_multimedia_library()
+//{
+//	HMODULE h_winmm = LoadLibraryA("winmm.dll");
+//	if (!h_winmm)
+//		return false;
+//
+//	wave_in_open = (PWAVEOPENFN)GetProcAddress(h_winmm, "waveInOpen");
+//	wave_out_open = (PWAVEOPENFN)GetProcAddress(h_winmm, "waveOutOpen");
+//	wave_in_get_dev_capsa = (WAVEGETDEVCAPSA)GetProcAddress(h_winmm, "waveInGetDevCapsA");
+//	wave_out_get_dev_capsa = (WAVEGETDEVCAPSA)GetProcAddress(h_winmm, "waveOutGetDevCapsA");
+//	wave_in_get_num_devs = (WAVEGETNUMDEVSFN)GetProcAddress(h_winmm, "waveInGetNumDevs");
+//	wave_out_get_num_devs = (WAVEGETNUMDEVSFN)GetProcAddress(h_winmm, "waveOutGetNumDevs");
+//}
+
 HWAVEIN h_wavein;
 HWAVEOUT h_waveout;
+HANDLE h_event;
+CRITICAL_SECTION cs;
 
 bool winmm_driver_query_devices_number(int *p_devsnum, int device_type);
 bool winmm_driver_query_device_information(snd_device_info_t *p_dst_info, int device_type, int device_index);
-bool winmm_driver_format_is_supported(snd_format_t *p_format);
-bool winmm_driver_init(snd_format_t *p_format);
+bool winmm_driver_format_is_supported(int device, snd_format_t *p_format);
+bool winmm_driver_init(int device, snd_format_t *p_format);
 bool winmm_driver_switch_device(int device_type, int device_index);
 void winmm_driver_shutdown();
 void winmm_driver_lock();
@@ -77,31 +148,77 @@ bool winmm_driver_query_device_information(snd_device_info_t *p_dst_info, int de
 	return false;
 }
 
-bool winmm_driver_format_is_supported(snd_format_t *p_format)
+bool winmm_driver_format_is_supported(int device, snd_format_t *p_format)
 {
 	CHAR errbuffer[512];
 	MMRESULT status;
 	WAVEFORMATEX format;
 	snd_format_to_waveformatex(&format, p_format);
-	if ((status = waveOutOpen(0, (UINT)WAVE_MAPPER, &format, 0, 0, WAVE_FORMAT_QUERY)) != MMSYSERR_NOERROR) {
-		waveOutGetErrorTextA(status, errbuffer, sizeof(errbuffer));
-		printf("winmm_driver_format_is_supported: %s\n", errbuffer);
-		return false;
-	}
+	switch (device) {
+		case OUT_DEVICE: {
+			if ((status = waveOutOpen(0, (UINT)WAVE_MAPPER, &format, 0, 0, WAVE_FORMAT_QUERY)) != MMSYSERR_NOERROR) {
+				waveOutGetErrorTextA(status, errbuffer, sizeof(errbuffer));
+				printf("winmm_driver_format_is_supported: %s\n", errbuffer);
+				return false;
+			}
+			return true;
+		}
 
-	if ((status = waveInOpen(0, (UINT)WAVE_MAPPER, &format, 0, 0, WAVE_FORMAT_QUERY)) != MMSYSERR_NOERROR) {
-		waveInGetErrorTextA(status, errbuffer, sizeof(errbuffer));
-		printf("winmm_driver_format_is_supported: %s\n", errbuffer);
-		return false;
+		case IN_DEVICE: {
+			if ((status = waveInOpen(0, (UINT)WAVE_MAPPER, &format, 0, 0, WAVE_FORMAT_QUERY)) != MMSYSERR_NOERROR) {
+				waveInGetErrorTextA(status, errbuffer, sizeof(errbuffer));
+				printf("winmm_driver_format_is_supported: %s\n", errbuffer);
+				return false;
+			}
+			return true;
+		}
 	}
-	return true;
+	printf("winmm_driver_format_is_supported: Unknown device type!\n");
+	return false;
 }
 
-bool winmm_driver_init(snd_format_t *p_format)
+void CALLBACK waveout_callback(HWAVEOUT hwo, UINT uMsg, DWORD dwInstance, DWORD dwParam1, DWORD dwParam2)
 {
-	waveInOpen(&h_wavein, );
+	UNREFERENCED_PARAMETER(dwInstance);
+	switch (uMsg)
+	{
+	case WOM_OPEN:
+		break;
 
+	case WOM_DONE:
+		SetEvent(h_event);
+		break;
 
+	case WOM_CLOSE:
+		break;
+	}
+}
+
+bool winmm_driver_init(int device, snd_format_t *p_format)
+{
+	MMRESULT status;
+	WAVEFORMATEX format;
+	CHAR errbuffer[512];
+	snd_format_to_waveformatex(&format, p_format);
+	switch (device) {
+	case OUT_DEVICE: {
+		if ((status = waveOutOpen(0, (UINT)WAVE_MAPPER, &format, 0, 0, WAVE_FORMAT_QUERY)) != MMSYSERR_NOERROR) {
+			waveOutGetErrorTextA(status, errbuffer, sizeof(errbuffer));
+			printf("winmm_driver_format_is_supported: %s\n", errbuffer);
+			return false;
+		}
+		return true;
+	}
+
+	case IN_DEVICE: {
+		if ((status = waveInOpen(0, (UINT)WAVE_MAPPER, &format, 0, 0, WAVE_FORMAT_QUERY)) != MMSYSERR_NOERROR) {
+			waveInGetErrorTextA(status, errbuffer, sizeof(errbuffer));
+			printf("winmm_driver_format_is_supported: %s\n", errbuffer);
+			return false;
+		}
+		return true;
+	}
+	}
 	return true;
 }
 

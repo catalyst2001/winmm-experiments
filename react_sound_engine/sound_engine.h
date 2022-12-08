@@ -13,7 +13,7 @@
 *  Evgeny Krasnikov (Jin X) - Algorithms and theory of digital sound. Mathematical calculations and transformations.
 *  Ilya Ilyichev (shar1otte) - Mathematical calculations and transformations
 *  
-*  
+*  r1snde.dll
 **/
 #pragma once
 #include <stdio.h>
@@ -82,7 +82,7 @@ typedef void *(*calloc_func_t)(size_t count, size_t size);
 typedef void *(*realloc_func_t)(void *p_oldptr, size_t new_size);
 
 typedef struct snd_engine_initdata_s {
-	int driver;
+	int device; /* in/out */
 	int bitrate;
 	int sample_rate;
 	int num_of_channels;
@@ -152,9 +152,11 @@ typedef void (*info_msg_callback_pfn)(const char *p_text);
 typedef struct snd_engine_dt_s {
 	/* direct interface */
 	void               (*set_info_message_callback)(info_msg_callback_pfn callback_pfn);
-	bool               (*init)(const snd_engine_initdata_t *p_init_data);
+
+	bool               (*init_device)(const snd_engine_initdata_t *p_init_data);
+	void               (*shutdown_device)();
+
 	void               (*wait_threads)();
-	void               (*shutdown)();
 
 	void               (*set_flags)(int flags);
 	int                (*get_flags)();
@@ -212,8 +214,8 @@ typedef struct snd_engine_dt_s {
 
 snd_engine_dt_t *get_sound_engine_api(int api_version);
 
-#define IDDI_INIT_FUNCTIONS(flags, driver_name, query_devices_number_fn, query_device_information_fn, format_is_supported, init, switch_device, shutdown, lock, unlock, wait, send_data, set_listen_samples_callback) \
-	{ flags, driver_name, query_devices_number_fn, query_device_information_fn, format_is_supported, init, switch_device, shutdown, lock, unlock, wait, send_data, set_listen_samples_callback }
+#define IDDI_INIT_FUNCTIONS(flags, driver_name, query_devices_number_fn, query_device_information_fn, format_is_supported, init_device, switch_device, shutdown_device, lock, unlock, wait, send_data, set_listen_samples_callback) \
+	{ flags, driver_name, query_devices_number_fn, query_device_information_fn, format_is_supported, init_device, switch_device, shutdown_device, lock, unlock, wait, send_data, set_listen_samples_callback }
 
 #ifdef _MSC_VER
 #define SAFE_DTCALL(dt, func, ...) if(dt) (dt)->func(__VA_ARGS__)
@@ -226,8 +228,8 @@ typedef struct snd_driver_interface_s {
 	int  (*driver_query_devices_number)(int device);
 	bool (*driver_query_device_information)(snd_device_info_t *p_dst_info, int device_type, int device_index);
 
-	bool (*driver_format_is_supported)(snd_format_t *p_format);
-	bool (*driver_init)(snd_format_t *p_format);
+	bool (*driver_format_is_supported)(int device, snd_format_t *p_format);
+	bool (*driver_init)(int device, snd_format_t *p_format);
 	bool (*driver_switch_device)(int device_type, int device_index);
 	void (*driver_shutdown)();
 	void (*driver_lock)();

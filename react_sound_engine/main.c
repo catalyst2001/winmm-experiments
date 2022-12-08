@@ -74,8 +74,8 @@ int main()
 	//init_props.sample_rate = 44100;
 	//init_props.bitrate = 16;
 	//init_props.num_of_channels = 2;
-	//if (!p_sndengine->init(&init_props)) {
-	//	printf("Failed to init sound engine! Error: %s\n", p_sndengine->last_error_string());
+	//if (!p_sndengine->init_device(&init_props)) {
+	//	printf("Failed to init_device sound engine! Error: %s\n", p_sndengine->last_error_string());
 	//	return 1;
 	//}
 	//print_devices(p_sndengine);
@@ -94,13 +94,17 @@ int main()
 	//}
 
 	//p_sndengine->wait_threads();
-	//p_sndengine->shutdown();
+	//p_sndengine->shutdown_device();
 
-	size_t samples = 44100;
-	size_t channels = 2;
-	for (size_t sample_set = 0; sample_set < samples; sample_set++) {
-		printf(" %d", sample_set * channels);
-	}
+	//size_t samples = 44100;
+	//size_t channels = 2;
+	//for (size_t sample_set = 0; sample_set < samples; sample_set++) {
+	//	printf(" %d", sample_set * channels);
+	//}
+
+	for (size_t i = 0; i <= 10; i++)
+		if (!(i & 1))
+			printf("%d ", i);
 
 	return 0;
 }

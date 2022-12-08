@@ -1,1 +1,15 @@
-﻿  wav_playing.vcxproj -> E:\GITHUB\winmm-experiments\Debug\wav_playing.exe
+﻿  main.c
+e:\github\winmm-experiments\wav_playing\main.c(114): warning C4047: функция: "int" отличается по уровням косвенного обращения от "void *"
+e:\github\winmm-experiments\wav_playing\main.c(114): warning C4024: memset: различные типы для формального и фактического параметров 2
+e:\github\winmm-experiments\wav_playing\main.c(161): warning C4047: функция: "DWORD_PTR" отличается по уровням косвенного обращения от "void *"
+e:\github\winmm-experiments\wav_playing\main.c(161): warning C4024: waveOutOpen: различные типы для формального и фактического параметров 4
+e:\github\winmm-experiments\wav_playing\main.c(162): warning C4047: функция: "DWORD_PTR" отличается по уровням косвенного обращения от "void *"
+e:\github\winmm-experiments\wav_playing\main.c(162): warning C4024: waveOutOpen: различные типы для формального и фактического параметров 5
+e:\github\winmm-experiments\wav_playing\main.c(171): warning C4047: функция: "int" отличается по уровням косвенного обращения от "void *"
+e:\github\winmm-experiments\wav_playing\main.c(171): warning C4024: memset: различные типы для формального и фактического параметров 2
+e:\github\winmm-experiments\wav_playing\main.c(191): warning C4018: >=: несоответствие типов со знаком и без знака
+e:\github\winmm-experiments\wav_playing\main.c(255): warning C4047: функция: "DWORD_PTR" отличается по уровням косвенного обращения от "void *"
+e:\github\winmm-experiments\wav_playing\main.c(255): warning C4024: waveOutOpen: различные типы для формального и фактического параметров 4
+e:\github\winmm-experiments\wav_playing\main.c(255): warning C4024: waveOutOpen: различные типы для формального и фактического параметров 5
+e:\github\winmm-experiments\wav_playing\main.c(177): warning C4716: prepare_audio_buffers: должна возвращать значение
+  wav_playing.vcxproj -> E:\GITHUB\winmm-experiments\Debug\wav_playing.exe

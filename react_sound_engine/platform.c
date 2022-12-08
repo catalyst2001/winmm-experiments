@@ -17,7 +17,7 @@ int pthread_join(pthread_t thread, void **value_ptr)
 // 
 // Mutex
 // 
-int pthread_mutex_init(pthread_mutex_t *mutex, const pthread_mutexattr_t *attr)
+int pthread_mutex_init_device(pthread_mutex_t *mutex, const pthread_mutexattr_t *attr)
 {
 	InitializeCriticalSection(&mutex->cs);
 	return 0;
