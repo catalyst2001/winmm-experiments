@@ -1,0 +1,8 @@
+﻿  main.cpp
+d:\github\winmm-experiments\sin_generator\main.cpp(43): warning C4305: инициализация: усечение из "double" в "float"
+d:\github\winmm-experiments\sin_generator\main.cpp(90): warning C4244: инициализация: преобразование "double" в "float", возможна потеря данных
+d:\github\winmm-experiments\sin_generator\main.cpp(143): warning C4244: =: преобразование "double" в "float", возможна потеря данных
+d:\github\winmm-experiments\sin_generator\main.cpp(152): warning C4244: =: преобразование "double" в "float", возможна потеря данных
+d:\github\winmm-experiments\sin_generator\main.cpp(213): warning C4244: =: преобразование "double" в "float", возможна потеря данных
+d:\github\winmm-experiments\sin_generator\main.cpp(214): warning C4244: =: преобразование "double" в "float", возможна потеря данных
+  sin_generator.vcxproj -> D:\GITHUB\winmm-experiments\Debug\sin_generator.exe

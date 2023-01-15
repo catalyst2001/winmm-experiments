@@ -21,10 +21,21 @@ HWND h_trackbar;
 HWND h_volume;
 HWND h_right_volume;
 
+#define SAMPLE_RATE 44100
+#define BITRATE 16
+#define CHANNELS 2
+
+#define NUM_OF_BUFFERS 16
+#define BYTE_PER_SAMPLE (BITRATE / CHAR_BIT)
+#define BYTES_PER_SECOND (SAMPLE_RATE * BYTE_PER_SAMPLE * CHANNELS)
+#define BUFFER_SIZE (BYTES_PER_SECOND / NUM_OF_BUFFERS)
+
 WAVEFORMATEX format;
 HWAVEOUT h_waveout;
 HANDLE h_event;
-WAVEHDR buffers[8];
+WAVEHDR buffers[NUM_OF_BUFFERS];
+
+#define size(x) (sizeof(x) / sizeof(x[0]))
 
 #define M_PI 3.1415926535
 #define D2R (0.01745329251) //3.1415926535 / 180.0
@@ -67,16 +78,16 @@ DWORD WINAPI audio_thread(LPVOID lpThreadParameter)
 	float max_range = (float)(pow(2.0, (double)format.wBitsPerSample) - 1.0);
 	while (true) {
 		WaitForSingleObject(h_event, INFINITE);
-		const size_t num_of_buffers = (sizeof(buffers) / sizeof(buffers[0]));
+		const size_t num_of_buffers = size(buffers);
 		for (size_t i = 0; i < num_of_buffers; i++) {
 			p_buffer = &buffers[i];
 			if (p_buffer->dwFlags & MHDR_DONE) {
 				p_buffer->dwFlags &= ~MHDR_DONE;
 				short *p_samples = (short *)p_buffer->lpData;
-				size_t num_samples = (format.nAvgBytesPerSec / 8) / (format.wBitsPerSample / 8);
+				size_t num_samples = BUFFER_SIZE / CHANNELS / 2;
 				float alfa = 0.f;
 				for (j = 0; j < num_samples; ) {
-					float sample = sinf(alfa) / 3;
+					float sample = sinf(alfa) / M_PI;
 					p_samples[j++] = (short)(sample * gain * max_range); //L
 					p_samples[j++] = (short)(sample * gain * max_range); //R
 					alfa += frequency;
@@ -145,9 +156,9 @@ int APIENTRY WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLi
 	MMRESULT result;
 	format.cbSize = sizeof WAVEFORMATEX;
 	format.wFormatTag = WAVE_FORMAT_PCM;
-	format.nChannels = 2;
-	format.wBitsPerSample = 16;
-	format.nSamplesPerSec = 44100;
+	format.nChannels = CHANNELS;
+	format.wBitsPerSample = BITRATE;
+	format.nSamplesPerSec = SAMPLE_RATE;
 	format.nBlockAlign = format.nChannels * (format.wBitsPerSample / 8);
 	format.nAvgBytesPerSec = format.nBlockAlign * format.nSamplesPerSec;
 	if ((result = waveOutOpen(&h_waveout, WAVE_MAPPER, &format, (DWORD_PTR)waveout_callback, (DWORD_PTR)NULL, CALLBACK_FUNCTION)) != MMSYSERR_NOERROR) {
@@ -165,17 +176,17 @@ int APIENTRY WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLi
 	}
 
 	PWAVEHDR p_curr_hdr;
-	for (size_t i = 0; i < sizeof(buffers) / sizeof(buffers[0]); i++) {
+	for (size_t i = 0; i < size(buffers); i++) {
 		p_curr_hdr = &buffers[i];
 		memset(p_curr_hdr, 0, sizeof(WAVEHDR));
-		p_curr_hdr->dwBufferLength = format.nAvgBytesPerSec / 8;
+		p_curr_hdr->dwBufferLength = BUFFER_SIZE;
 		p_curr_hdr->lpData = (LPSTR)calloc(p_curr_hdr->dwBufferLength, 1);
 		assert(p_curr_hdr->lpData);
 		waveOutPrepareHeader(h_waveout, p_curr_hdr, sizeof(WAVEHDR));
 		p_curr_hdr->dwFlags |= MHDR_DONE;
 	}
 	waveOutRestart(h_waveout);
-	CreateThread(NULL, NULL, audio_thread, NULL, NULL, NULL);
+	HANDLE h_thread = CreateThread(NULL, NULL, audio_thread, NULL, NULL, NULL);
 	ShowWindow(h_wnd, nCmdShow);
 	UpdateWindow(h_wnd);
 
@@ -184,6 +195,7 @@ int APIENTRY WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLi
 		TranslateMessage(&msg);
 		DispatchMessage(&msg);
     }
+	TerminateThread(h_thread, 0);
     return (int) msg.wParam;
 }
 

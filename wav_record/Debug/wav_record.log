@@ -1,0 +1,8 @@
+﻿  main.c
+d:\github\winmm-experiments\wav_record\main.c(91): warning C4047: функция: "DWORD_PTR" отличается по уровням косвенного обращения от "void *"
+d:\github\winmm-experiments\wav_record\main.c(91): warning C4024: waveInOpen: различные типы для формального и фактического параметров 5
+d:\github\winmm-experiments\wav_record\main.c(91): warning C4047: функция: "DWORD" отличается по уровням косвенного обращения от "void *"
+d:\github\winmm-experiments\wav_record\main.c(91): warning C4024: waveInOpen: различные типы для формального и фактического параметров 6
+d:\github\winmm-experiments\wav_record\main.c(103): warning C4047: функция: "int" отличается по уровням косвенного обращения от "void *"
+d:\github\winmm-experiments\wav_record\main.c(103): warning C4024: memset: различные типы для формального и фактического параметров 2
+  wav_record.vcxproj -> D:\GITHUB\winmm-experiments\Debug\wav_record.exe

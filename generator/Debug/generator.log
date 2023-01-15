@@ -1,0 +1,4 @@
+﻿  generator.cpp
+d:\github\winmm-experiments\generator\generator.cpp(153): warning C4101: k: неиспользованная локальная переменная
+d:\github\winmm-experiments\generator\generator.cpp(153): warning C4101: j: неиспользованная локальная переменная
+  generator.vcxproj -> D:\GITHUB\winmm-experiments\Debug\generator.exe
