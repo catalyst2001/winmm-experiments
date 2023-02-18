@@ -17,6 +17,8 @@ Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "react_sound_engine", "react
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "generator", "generator\generator.vcxproj", "{89B8F159-462D-4D5F-A90E-1EC74D836345}"
 EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "dsound_wav_play", "dsound_wav_play\dsound_wav_play.vcxproj", "{25639B5C-1377-46A6-A9BE-9AE7B6EA094E}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|x64 = Debug|x64
@@ -81,6 +83,14 @@ Global
 		{89B8F159-462D-4D5F-A90E-1EC74D836345}.Release|x64.Build.0 = Release|x64
 		{89B8F159-462D-4D5F-A90E-1EC74D836345}.Release|x86.ActiveCfg = Release|Win32
 		{89B8F159-462D-4D5F-A90E-1EC74D836345}.Release|x86.Build.0 = Release|Win32
+		{25639B5C-1377-46A6-A9BE-9AE7B6EA094E}.Debug|x64.ActiveCfg = Debug|x64
+		{25639B5C-1377-46A6-A9BE-9AE7B6EA094E}.Debug|x64.Build.0 = Debug|x64
+		{25639B5C-1377-46A6-A9BE-9AE7B6EA094E}.Debug|x86.ActiveCfg = Debug|Win32
+		{25639B5C-1377-46A6-A9BE-9AE7B6EA094E}.Debug|x86.Build.0 = Debug|Win32
+		{25639B5C-1377-46A6-A9BE-9AE7B6EA094E}.Release|x64.ActiveCfg = Release|x64
+		{25639B5C-1377-46A6-A9BE-9AE7B6EA094E}.Release|x64.Build.0 = Release|x64
+		{25639B5C-1377-46A6-A9BE-9AE7B6EA094E}.Release|x86.ActiveCfg = Release|Win32
+		{25639B5C-1377-46A6-A9BE-9AE7B6EA094E}.Release|x86.Build.0 = Release|Win32
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

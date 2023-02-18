@@ -17,22 +17,16 @@
 
 HINSTANCE g_instance;
 HWND h_wnd;
-HWND h_trackbar;
+HWND h_trackbar_freq;
 HWND h_volume;
 HWND h_right_volume;
 
-#define SAMPLE_RATE 44100
-#define BITRATE 16
-#define CHANNELS 2
-
-#define NUM_OF_BUFFERS 16
-#define BYTE_PER_SAMPLE (BITRATE / CHAR_BIT)
-#define BYTES_PER_SECOND (SAMPLE_RATE * BYTE_PER_SAMPLE * CHANNELS)
-#define BUFFER_SIZE (BYTES_PER_SECOND / NUM_OF_BUFFERS)
+#define NUM_OF_BUFFERS 4
 
 WAVEFORMATEX format;
 HWAVEOUT h_waveout;
 HANDLE h_event;
+DWORD dw_buffer_size;
 WAVEHDR buffers[NUM_OF_BUFFERS];
 
 #define size(x) (sizeof(x) / sizeof(x[0]))
@@ -40,11 +34,24 @@ WAVEHDR buffers[NUM_OF_BUFFERS];
 #define M_PI 3.1415926535
 #define D2R (0.01745329251) //3.1415926535 / 180.0
 
-float frequency = 0.005;
+float frequency = 0.001;
 float gain;
 
 void ErrorMessage(const char *p_format, ...);
 LRESULT CALLBACK WndProc(HWND, UINT, WPARAM, LPARAM);
+
+void clampf(float *p_flt, float min, float max)
+{
+	if ((*p_flt) < min) {
+		*p_flt = min;
+		return;
+	}
+
+	if ((*p_flt) > max) {
+		*p_flt = max;
+		return;
+	}
+}
 
 void CALLBACK waveout_callback(HWAVEOUT hwo, UINT uMsg, DWORD dwInstance, DWORD dwParam1, DWORD dwParam2)
 {
@@ -75,7 +82,7 @@ DWORD WINAPI audio_thread(LPVOID lpThreadParameter)
 	float t = 0.f;
 	size_t j = 0;
 	PWAVEHDR p_buffer;
-	float max_range = (float)(pow(2.0, (double)format.wBitsPerSample) - 1.0);
+	float max_range = (float)(powf(2.f, (float)format.wBitsPerSample) / 2.f) - 1.0;
 	while (true) {
 		WaitForSingleObject(h_event, INFINITE);
 		const size_t num_of_buffers = size(buffers);
@@ -84,8 +91,8 @@ DWORD WINAPI audio_thread(LPVOID lpThreadParameter)
 			if (p_buffer->dwFlags & MHDR_DONE) {
 				p_buffer->dwFlags &= ~MHDR_DONE;
 				short *p_samples = (short *)p_buffer->lpData;
-				size_t num_samples = BUFFER_SIZE / CHANNELS / 2;
-				float alfa = 0.f;
+				size_t num_samples = dw_buffer_size / format.nBlockAlign;
+				static float alfa = 0.f;
 				for (j = 0; j < num_samples; ) {
 					float sample = sinf(alfa) / M_PI;
 					p_samples[j++] = (short)(sample * gain * max_range); //L
@@ -134,13 +141,13 @@ int APIENTRY WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLi
 	rect.bottom -= 20;
 	CreateWindowExA(0, "static", "Частота", WS_VISIBLE | WS_CHILD, rect.left, rect.top, rect.right, 20, h_wnd, (HMENU)0, 0, 0);
 	rect.top += 20 + 2;
-	h_trackbar = CreateWindowExA(0, TRACKBAR_CLASSA, "", WS_VISIBLE|WS_CHILD|TBS_ENABLESELRANGE, rect.left, rect.top, rect.right, 30, h_wnd, (HMENU)0, NULL, NULL);
+	h_trackbar_freq = CreateWindowExA(0, TRACKBAR_CLASSA, "", WS_VISIBLE|WS_CHILD|TBS_ENABLESELRANGE, rect.left, rect.top, rect.right, 30, h_wnd, (HMENU)0, NULL, NULL);
 	rect.top += 30 + 20;
-	SendMessageA(h_trackbar, TBM_SETRANGEMIN, FALSE, 1);
-	SendMessageA(h_trackbar, TBM_SETRANGEMAX, FALSE, 80);
-	SendMessageA(h_trackbar, TBM_SETPOS, TRUE, 1);
+	SendMessageA(h_trackbar_freq, TBM_SETRANGEMIN, FALSE, 1);
+	SendMessageA(h_trackbar_freq, TBM_SETRANGEMAX, FALSE, 500);
+	SendMessageA(h_trackbar_freq, TBM_SETPOS, TRUE, 0);
 
-	frequency = (float)SendMessageA(h_trackbar, TBM_GETPOS, 0, 0) * 0.001;
+	frequency = (float)SendMessageA(h_trackbar_freq, TBM_GETPOS, 0, 0) * 0.001;
 
 	CreateWindowExA(0, "static", "Громкость", WS_VISIBLE | WS_CHILD, rect.left, rect.top, rect.right, 20, h_wnd, (HMENU)0, 0, 0);
 	rect.top += 20 + 2;
@@ -150,15 +157,16 @@ int APIENTRY WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLi
 	SendMessageA(h_volume, TBM_SETRANGEMAX, FALSE, 100);
 	SendMessageA(h_volume, TBM_SETPOS, TRUE, 50);
 	gain = (float)SendMessageA(h_volume, TBM_GETPOS, 0, 0) * 0.01;
+	clampf(&gain, 0.f, 1.f);
 
 	// --- init winmm ---
 	CHAR desterr[512];
 	MMRESULT result;
 	format.cbSize = sizeof WAVEFORMATEX;
 	format.wFormatTag = WAVE_FORMAT_PCM;
-	format.nChannels = CHANNELS;
-	format.wBitsPerSample = BITRATE;
-	format.nSamplesPerSec = SAMPLE_RATE;
+	format.nChannels = 1;
+	format.wBitsPerSample = 16;
+	format.nSamplesPerSec = 44100;
 	format.nBlockAlign = format.nChannels * (format.wBitsPerSample / 8);
 	format.nAvgBytesPerSec = format.nBlockAlign * format.nSamplesPerSec;
 	if ((result = waveOutOpen(&h_waveout, WAVE_MAPPER, &format, (DWORD_PTR)waveout_callback, (DWORD_PTR)NULL, CALLBACK_FUNCTION)) != MMSYSERR_NOERROR) {
@@ -166,6 +174,8 @@ int APIENTRY WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLi
 		MessageBoxA(0, desterr, "Failed to initialize wimm", MB_OK | MB_ICONERROR);
 		return 1;
 	}
+
+	dw_buffer_size = format.nAvgBytesPerSec / 32;
 
 	h_event = CreateEventA(NULL, FALSE, TRUE, NULL);
 	if (!h_event) {
@@ -179,7 +189,7 @@ int APIENTRY WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLi
 	for (size_t i = 0; i < size(buffers); i++) {
 		p_curr_hdr = &buffers[i];
 		memset(p_curr_hdr, 0, sizeof(WAVEHDR));
-		p_curr_hdr->dwBufferLength = BUFFER_SIZE;
+		p_curr_hdr->dwBufferLength = dw_buffer_size;
 		p_curr_hdr->lpData = (LPSTR)calloc(p_curr_hdr->dwBufferLength, 1);
 		assert(p_curr_hdr->lpData);
 		waveOutPrepareHeader(h_waveout, p_curr_hdr, sizeof(WAVEHDR));
@@ -210,8 +220,10 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 
 		case WM_HSCROLL:
 		{
-			frequency = (float)SendMessageA(h_trackbar, TBM_GETPOS, 0, 0) * 0.001;
+			frequency = (float)SendMessageA(h_trackbar_freq, TBM_GETPOS, 0, 0) * 0.001;
+			clampf(&frequency, 0.f, 1.f);
 			gain = (float)SendMessageA(h_volume, TBM_GETPOS, 0, 0) * 0.01;
+			clampf(&gain, 0.f, 1.f);
 			return 0;
 		}
 

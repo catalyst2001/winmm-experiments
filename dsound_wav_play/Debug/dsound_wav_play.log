@@ -1,0 +1,4 @@
+﻿  dsound_wav_play.cpp
+d:\github\winmm-experiments\dsound_wav_play\dsound_wav_play.cpp(36): warning C4305: инициализация: усечение из "double" в "float"
+d:\github\winmm-experiments\dsound_wav_play\dsound_wav_play.cpp(63): warning C4018: >=: несоответствие типов со знаком и без знака
+  dsound_wav_play.vcxproj -> D:\GITHUB\winmm-experiments\Debug\dsound_wav_play.exe

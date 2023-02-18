@@ -220,7 +220,7 @@ int main()
 
 	wave_t wav;
 	printf("Loading wav file...\n");
-	if (!load_wave(&wav, "aryx.wav")) {
+	if (!load_wave(&wav, "techno.wav")) {
 		printf("Failed to load wav file\n");
 		return 1;
 	}
