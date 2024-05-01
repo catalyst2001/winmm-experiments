@@ -29,14 +29,45 @@ double time_ms()
 	return counter.QuadPart / (double)freq.QuadPart;
 }
 
+/* WAVEFORM VIEW */
+HDC h_dc;
+HWND h_wnd;
+RECT rect;
+
+LRESULT CALLBACK waveform_window_proc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam)
+{
+	switch (msg) {
+	case WM_SIZE:
+		GetClientRect(hwnd, &rect);
+		break;
+	}
+	return DefWindowProcA(hwnd, msg, wparam, lparam);
+}
+
+bool waveform_create()
+{
+	WNDCLASSA wc;
+	memset(&wc, 0, sizeof(wc));
+	wc.lpszClassName = "waveform_window";
+	wc.hCursor = LoadCursor(NULL, IDC_ARROW);
+	wc.hInstance = GetModuleHandleA(0);
+	wc.lpfnWndProc = waveform_window_proc;
+
+	h_wnd = CreateWindowExA(0, wc.lpszClassName, "waveform", WS_VISIBLE | WS_OVERLAPPEDWINDOW, 0, 0, 1000, 200, NULL, (HMENU)0, NULL, NULL);
+	if (!h_wnd)
+		return false;
+
+
+}
+
 void waveform_generate(short *p_dst, int n_samples, float frequency, float amplitude)
 {
 #define DEG2RAD(y) ((y) / 180.f)
 	//static float time = 0.f;
 	const float pi2 = 3.14 * 2;
-	static float alfa = 0.f;
+	static float alpha = 0.f;
 	for (int i = 0; i < n_samples; i++) {
-		float sample = sinf(DEG2RAD(pi2 * alfa));
+		float sample = sinf(DEG2RAD(pi2 * alpha));
 		//float sample = sinf(2 * pi2 * frequency * (float)time_ms() + 0.f);
 		//printf("time=%f freq=%f freq_rad_s=%f data=%f\n", t, freq_hz, freq_rad_s, sample);
 
@@ -46,7 +77,7 @@ void waveform_generate(short *p_dst, int n_samples, float frequency, float ampli
 			sample = 1.f;
 
 		p_dst[i] = (short)(sample * 32767);
-		alfa += 0.2f;
+		alpha += 0.2f;
 	}
 }
 
@@ -73,8 +104,8 @@ void fill_buffer(char *p_data, int length)
 
 		/* work with samples data */
 
-		dst_samples[0] = src_samples[0];
-		dst_samples[1] = src_samples[1];
+		dst_samples[0] = src_samples[0] * -1;
+		dst_samples[1] = src_samples[1] * -1;
 
 		p_dst_samples[i++] = (short)(dst_samples[0] * multiplier);
 		p_dst_samples[i++] = (short)(dst_samples[1] * multiplier);
@@ -138,7 +169,7 @@ int main()
 	IDirectSoundBuffer8_Play(p_soundbuffer8, 0, 0, DSBPLAY_LOOPING);
 
 	// loading wav file
-	if (!load_wave(&wave_file, "C:/Users/asrock/Downloads/Nicky Smiles - Happy New Mix 2011 (Track 13) - Radio Killer - Lonely Heart (Exte.wav")) {
+	if (!load_wave(&wave_file, "../sounds/techno44100.wav")) {
 		printf("Failed to load wav file!\n");
 		return 1;
 	}

@@ -105,7 +105,7 @@ typedef struct sndmixer_s {
 
 typedef struct snd_device_s {
 	ui32 buffers_size;
-	WAVEHDR buffers[8];
+	WAVEHDR buffers[2];
 	HWAVEOUT h_waveout;
 	sndmixer_t mixer;
 	CRITICAL_SECTION cs;
@@ -217,53 +217,109 @@ DWORD WINAPI mixer_thread(snd_device_t *p_device)
 {
 	sndsource_t *p_sound_source;
 	sndmixer_t *p_mixer = &p_device->mixer;
+	size_t buffer_index = 0;
+	const size_t num_of_buffers = cnt(p_device->buffers);
 	while (p_mixer->status == TSE_MIXER_STATUS_RUNNING) {
-		WaitForSingleObject(p_mixer->h_event, INFINITE);
-
 		// playback buffers
-		const size_t num_of_buffers = cnt(p_device->buffers);
-		for (register size_t buffer_index = 0; buffer_index < num_of_buffers; buffer_index++) {
-			
-			PWAVEHDR p_current_buffer = &p_device->buffers[buffer_index];
-			if (p_current_buffer->dwFlags & MHDR_DONE) {
-				p_current_buffer->dwFlags &= ~MHDR_DONE;
-				i16 *p_dest_samples = (i16 *)p_current_buffer->lpData;
+		
+		PWAVEHDR p_current_buffer = &p_device->buffers[buffer_index];
+		if (p_current_buffer->dwFlags & MHDR_DONE) {
 
-				EnterCriticalSection(&p_device->cs);
-				size_t i = 0;
-				while (i < p_mixer->out_samples_count_per_buffer) {
-					f32 source_samples[2];
-					f32 mixed_samples[2] = { 0.f, 0.f }; // L  R
+			p_current_buffer->dwFlags &= ~MHDR_DONE;
+			i16 *p_dest_samples = (i16 *)p_current_buffer->lpData;
 
-					// Mix audio sources samples
-					for (i32 j = 0; j < p_mixer->number_of_sources; j++) {
-						p_sound_source = &p_mixer->p_snd_sources[j];
+			EnterCriticalSection(&p_device->cs);
+			size_t i = 0;
+			while (i < p_mixer->out_samples_count_per_buffer) {
+				f32 source_samples[2];
+				f32 mixed_samples[2] = { 0.f, 0.f }; // L  R
 
-						// is source playing ?
-						if (p_sound_source->status == TSE_SSS_PLAYING) {
-							get_samples(p_mixer, source_samples, p_sound_source);
-							mixed_samples[L] += source_samples[L];
-							mixed_samples[R] += source_samples[R];
-						}
+				// Mix audio sources samples
+				for (i32 j = 0; j < p_mixer->number_of_sources; j++) {
+					p_sound_source = &p_mixer->p_snd_sources[j];
+
+					// is source playing ?
+					if (p_sound_source->status == TSE_SSS_PLAYING) {
+						get_samples(p_mixer, source_samples, p_sound_source);
+						mixed_samples[L] += source_samples[L];
+						mixed_samples[R] += source_samples[R];
 					}
-
-					// Limit the range of sum of samples to prevent clicks
-					mixed_samples[L] = tse_clamp(mixed_samples[L], -1.0f, 1.0f);
-					mixed_samples[R] = tse_clamp(mixed_samples[R], -1.0f, 1.0f);
-
-					// Fill samples
-					p_dest_samples[i++] = (i16)(p_mixer->master_volume * mixed_samples[L] * (f32)SHORT_MAX);
-					p_dest_samples[i++] = (i16)(p_mixer->master_volume * mixed_samples[R] * (f32)SHORT_MAX);
 				}
-				LeaveCriticalSection(&p_device->cs);
 
-				// send audio data to device driver
-				waveOutWrite(p_device->h_waveout, p_current_buffer, sizeof(*p_current_buffer));
+				// Limit the range of sum of samples to prevent clicks
+				mixed_samples[L] = tse_clamp(mixed_samples[L], -1.0f, 1.0f);
+				mixed_samples[R] = tse_clamp(mixed_samples[R], -1.0f, 1.0f);
+
+				// Fill samples
+				p_dest_samples[i++] = (i16)(p_mixer->master_volume * mixed_samples[L] * (f32)SHORT_MAX);
+				p_dest_samples[i++] = (i16)(p_mixer->master_volume * mixed_samples[R] * (f32)SHORT_MAX);
 			}
+			LeaveCriticalSection(&p_device->cs);
+
+			// send audio data to device driver
+			
+			waveOutWrite(p_device->h_waveout, p_current_buffer, sizeof(*p_current_buffer));
+			buffer_index = (buffer_index + 1) % num_of_buffers;
+
+			printf("end playing\n");
+
+			WaitForSingleObject(p_mixer->h_event, INFINITE);
 		}
 	}
 	return 0;
 }
+
+//DWORD WINAPI mixer_thread(snd_device_t *p_device)
+//{
+//	sndsource_t *p_sound_source;
+//	sndmixer_t *p_mixer = &p_device->mixer;
+//	while (p_mixer->status == TSE_MIXER_STATUS_RUNNING) {
+//		WaitForSingleObject(p_mixer->h_event, INFINITE);
+//
+//		// playback buffers
+//		const size_t num_of_buffers = cnt(p_device->buffers);
+//		for (register size_t buffer_index = 0; buffer_index < num_of_buffers; buffer_index++) {
+//			
+//			PWAVEHDR p_current_buffer = &p_device->buffers[buffer_index];
+//			if (p_current_buffer->dwFlags & MHDR_DONE) {
+//				p_current_buffer->dwFlags &= ~MHDR_DONE;
+//				i16 *p_dest_samples = (i16 *)p_current_buffer->lpData;
+//
+//				EnterCriticalSection(&p_device->cs);
+//				size_t i = 0;
+//				while (i < p_mixer->out_samples_count_per_buffer) {
+//					f32 source_samples[2];
+//					f32 mixed_samples[2] = { 0.f, 0.f }; // L  R
+//
+//					// Mix audio sources samples
+//					for (i32 j = 0; j < p_mixer->number_of_sources; j++) {
+//						p_sound_source = &p_mixer->p_snd_sources[j];
+//
+//						// is source playing ?
+//						if (p_sound_source->status == TSE_SSS_PLAYING) {
+//							get_samples(p_mixer, source_samples, p_sound_source);
+//							mixed_samples[L] += source_samples[L];
+//							mixed_samples[R] += source_samples[R];
+//						}
+//					}
+//
+//					// Limit the range of sum of samples to prevent clicks
+//					mixed_samples[L] = tse_clamp(mixed_samples[L], -1.0f, 1.0f);
+//					mixed_samples[R] = tse_clamp(mixed_samples[R], -1.0f, 1.0f);
+//
+//					// Fill samples
+//					p_dest_samples[i++] = (i16)(p_mixer->master_volume * mixed_samples[L] * (f32)SHORT_MAX);
+//					p_dest_samples[i++] = (i16)(p_mixer->master_volume * mixed_samples[R] * (f32)SHORT_MAX);
+//				}
+//				LeaveCriticalSection(&p_device->cs);
+//
+//				// send audio data to device driver
+//				waveOutWrite(p_device->h_waveout, p_current_buffer, sizeof(*p_current_buffer));
+//			}
+//		}
+//	}
+//	return 0;
+//}
 
 // 
 // tse_init_mixer
@@ -301,6 +357,7 @@ void CALLBACK waveout_callback(HWAVEOUT hwo, UINT uMsg, DWORD dwInstance, DWORD 
 
 	case WOM_DONE:
 		SetEvent(p_mixer->h_event);
+		printf("Unlock\n");
 		break;
 
 	case WOM_CLOSE:

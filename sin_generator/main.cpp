@@ -220,7 +220,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 
 		case WM_HSCROLL:
 		{
-			frequency = (float)SendMessageA(h_trackbar_freq, TBM_GETPOS, 0, 0) * 0.001;
+			frequency = (float)SendMessageA(h_trackbar_freq, TBM_GETPOS, 0, 0) * 0.0001;
 			clampf(&frequency, 0.f, 1.f);
 			gain = (float)SendMessageA(h_volume, TBM_GETPOS, 0, 0) * 0.01;
 			clampf(&gain, 0.f, 1.f);
